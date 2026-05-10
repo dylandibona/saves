@@ -19,6 +19,12 @@ export async function addSave(formData: FormData) {
   const category = formData.get('category') as SaveCategory
   const title = (formData.get('title') as string).trim()
   const note = (formData.get('note') as string | null)?.trim() || null
+
+  // Rich enrichment fields (forwarded from add-form via hidden inputs)
+  const subtitle = (formData.get('subtitle') as string | null)?.trim() || null
+  const heroImageUrl = (formData.get('hero_image_url') as string | null)?.trim() || null
+  const locationAddress = (formData.get('location_address') as string | null)?.trim() || null
+
   const coordsRaw = (formData.get('coords') as string | null)?.trim() || null
   const coords = (() => {
     if (!coordsRaw) return null
@@ -37,7 +43,7 @@ export async function addSave(formData: FormData) {
     .eq('kind', 'self')
     .single()
 
-  // Check for existing save with same canonical_url
+  // Check for existing save with same canonical_url — dedupe by adding capture
   if (url) {
     const { data: existing } = await supabase
       .from('saves')
@@ -48,7 +54,6 @@ export async function addSave(formData: FormData) {
       .maybeSingle()
 
     if (existing) {
-      // Add a new capture to the existing save
       await supabase.from('captures').insert({
         save_id: existing.id,
         user_id: user.id,
@@ -61,14 +66,17 @@ export async function addSave(formData: FormData) {
     }
   }
 
-  // Create new save
+  // Create new save with all enrichment data preserved
   const { data: newSave, error } = await supabase
     .from('saves')
     .insert({
       household_id: householdId,
       category,
       title,
+      subtitle,
       canonical_url: url,
+      hero_image_url: heroImageUrl,
+      location_address: locationAddress,
       ...(coords ? { canonical_data: { coords } } : {}),
     })
     .select('id')

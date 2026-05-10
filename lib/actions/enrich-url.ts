@@ -5,6 +5,7 @@ import {
   detectUrlType,
   extractMapsCoords,
   extractMapsPlaceName,
+  findCoordsInText,
 } from '@/lib/utils/url-detect'
 
 type SaveCategory = Database['public']['Enums']['save_category']
@@ -14,14 +15,16 @@ export type EnrichedUrl = {
   subtitle: string | null
   category: SaveCategory | null
   imageUrl: string | null
-  canonicalUrl: string
+  canonicalUrl: string  // resolved URL (for shortened links)
   coords: { lat: number; lng: number } | null
   note: string | null
   confidence: 'high' | 'medium' | 'low'
   source: 'google_maps' | 'ai' | 'og' | 'heuristic'
+  // For UX disambiguation when category confidence is low
+  alternativeCategories?: SaveCategory[]
 }
 
-// ─── OG fetch helper ──────────────────────────────────────────────────────────
+// ─── Fetch + OG parser ────────────────────────────────────────────────────────
 
 type OgData = {
   title: string | null
@@ -30,27 +33,34 @@ type OgData = {
   siteName: string | null
 }
 
-async function fetchOgData(url: string): Promise<OgData> {
-  const empty: OgData = { title: null, description: null, image: null, siteName: null }
+type FetchResult = {
+  finalUrl: string
+  html: string
+  og: OgData
+}
+
+const USER_AGENT =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
+
+async function fetchAndParse(url: string): Promise<FetchResult | null> {
   try {
     const res = await fetch(url, {
       headers: {
-        'User-Agent':
-          'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'User-Agent': USER_AGENT,
         Accept: 'text/html,application/xhtml+xml',
       },
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
       redirect: 'follow',
     })
 
-    if (!res.ok) return empty
+    if (!res.ok) return null
 
+    const finalUrl = res.url || url
     const html = await res.text()
 
     const extract = (pattern: RegExp): string | null => {
       const m = html.match(pattern)
       if (!m) return null
-      // Decode HTML entities minimally
       return m[1]
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
@@ -60,114 +70,130 @@ async function fetchOgData(url: string): Promise<OgData> {
         .trim() || null
     }
 
-    const ogTitle =
-      extract(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i) ??
-      extract(/<meta\s+content=["']([^"']+)["']\s+property=["']og:title["']/i)
+    const og: OgData = {
+      title:
+        extract(/<meta\s+property=["']og:title["']\s+content=["']([^"']+)["']/i) ??
+        extract(/<meta\s+content=["']([^"']+)["']\s+property=["']og:title["']/i) ??
+        extract(/<title>([^<]+)<\/title>/i),
+      description:
+        extract(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i) ??
+        extract(/<meta\s+content=["']([^"']+)["']\s+property=["']og:description["']/i) ??
+        extract(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i) ??
+        extract(/<meta\s+content=["']([^"']+)["']\s+name=["']description["']/i),
+      image:
+        extract(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ??
+        extract(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i),
+      siteName:
+        extract(/<meta\s+property=["']og:site_name["']\s+content=["']([^"']+)["']/i) ??
+        extract(/<meta\s+content=["']([^"']+)["']\s+property=["']og:site_name["']/i),
+    }
 
-    const ogDescription =
-      extract(/<meta\s+property=["']og:description["']\s+content=["']([^"']+)["']/i) ??
-      extract(/<meta\s+content=["']([^"']+)["']\s+property=["']og:description["']/i) ??
-      extract(/<meta\s+name=["']description["']\s+content=["']([^"']+)["']/i) ??
-      extract(/<meta\s+content=["']([^"']+)["']\s+name=["']description["']/i)
-
-    const ogImage =
-      extract(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ??
-      extract(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i)
-
-    const ogSiteName =
-      extract(/<meta\s+property=["']og:site_name["']\s+content=["']([^"']+)["']/i) ??
-      extract(/<meta\s+content=["']([^"']+)["']\s+property=["']og:site_name["']/i)
-
-    return { title: ogTitle, description: ogDescription, image: ogImage, siteName: ogSiteName }
+    return { finalUrl, html, og }
   } catch {
-    return empty
+    return null
   }
 }
 
-// ─── Google Maps category heuristic ──────────────────────────────────────────
+// ─── Claude classifier ────────────────────────────────────────────────────────
 
-function categoryFromMapsDescription(description: string | null): SaveCategory {
-  if (!description) return 'place'
-  const d = description.toLowerCase()
-  if (/restaurant|cafe|café|bar|bistro|diner|eatery|food|grill|tavern/.test(d)) return 'restaurant'
-  if (/hotel|inn|resort|motel|lodge|hostel|airbnb/.test(d)) return 'hotel'
-  return 'place'
-}
-
-// ─── Claude enrichment ────────────────────────────────────────────────────────
+const VALID_CATEGORIES: ReadonlyArray<SaveCategory> = [
+  'recipe', 'tv', 'movie', 'restaurant', 'hotel', 'place', 'event',
+  'book', 'podcast', 'music', 'article', 'product', 'workout', 'noted',
+]
 
 type ClaudeResult = {
   category: SaveCategory | null
+  alternativeCategories: SaveCategory[]
   title: string | null
   subtitle: string | null
   note: string | null
+  confidence: 'high' | 'medium' | 'low'
+}
+
+const EMPTY_CLAUDE: ClaudeResult = {
+  category: null,
+  alternativeCategories: [],
+  title: null,
+  subtitle: null,
+  note: null,
+  confidence: 'low',
 }
 
 async function classifyWithClaude(
   url: string,
-  og: OgData
+  og: OgData,
+  hint?: 'place' | null,
 ): Promise<ClaudeResult> {
-  const fallback: ClaudeResult = { category: null, title: null, subtitle: null, note: null }
-
   const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) return fallback
+  if (!apiKey) return EMPTY_CLAUDE
 
   try {
-    // Lazy import so the SDK is never bundled on the client
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const client = new Anthropic({ apiKey })
+
+    const placeHint = hint === 'place'
+      ? '\nThis is a Google Maps URL, so the category is one of: restaurant, hotel, place, event. Pick the most likely one.'
+      : ''
 
     const prompt = `You are classifying a URL for a personal saves library.
 
 URL: ${url}
 OG Title: ${og.title ?? '(none)'}
 OG Description: ${og.description ?? '(none)'}
-Site Name: ${og.siteName ?? '(none)'}
+Site Name: ${og.siteName ?? '(none)'}${placeHint}
 
 Categories available:
 recipe | tv | movie | restaurant | hotel | place | event | book | podcast | music | article | product | workout | noted
 
 Return ONLY valid JSON (no markdown, no explanation):
 {
-  "category": "<best single category from the list above>",
-  "title": "<clean, short title — improve the OG title if it's noisy, or null to keep OG>",
-  "subtitle": "<subtitle or address if relevant, otherwise null>",
-  "note": "<one sentence suggested note about why someone might save this, or null>"
+  "category": "<best single category from the list>",
+  "alternativeCategories": ["<one or two other plausible categories, or empty array if confident>"],
+  "title": "<clean, short title — improve OG title if noisy, strip ' - Google Maps' suffixes, or null to keep OG>",
+  "subtitle": "<address, neighborhood, byline, or other secondary detail — or null>",
+  "note": "<one short sentence on why someone might save this, or null>",
+  "confidence": "<high | medium | low>"
 }
 
-Be decisive. Pick the single best category.`
+Be decisive. Only mark medium/low if the URL is genuinely ambiguous.`
 
     const msg = await client.messages.create({
       model: 'claude-opus-4-5',
-      max_tokens: 256,
+      max_tokens: 384,
       messages: [{ role: 'user', content: prompt }],
     })
 
     const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
-    // Strip markdown code fences if present
     const cleaned = text.replace(/```(?:json)?\n?/g, '').trim()
     const parsed = JSON.parse(cleaned) as {
       category?: string
+      alternativeCategories?: string[]
       title?: string | null
       subtitle?: string | null
       note?: string | null
+      confidence?: string
     }
 
-    const validCategories = new Set<string>([
-      'recipe', 'tv', 'movie', 'restaurant', 'hotel', 'place', 'event',
-      'book', 'podcast', 'music', 'article', 'product', 'workout', 'noted',
-    ])
+    const validate = (c: string | undefined): SaveCategory | null =>
+      (c && (VALID_CATEGORIES as readonly string[]).includes(c)) ? (c as SaveCategory) : null
+
+    const confidence: 'high' | 'medium' | 'low' =
+      parsed.confidence === 'high' || parsed.confidence === 'medium' || parsed.confidence === 'low'
+        ? parsed.confidence
+        : 'medium'
 
     return {
-      category: (parsed.category && validCategories.has(parsed.category))
-        ? (parsed.category as SaveCategory)
-        : null,
+      category: validate(parsed.category),
+      alternativeCategories: (parsed.alternativeCategories ?? [])
+        .map(validate)
+        .filter((c): c is SaveCategory => c !== null),
       title: parsed.title ?? null,
       subtitle: parsed.subtitle ?? null,
       note: parsed.note ?? null,
+      confidence,
     }
   } catch {
-    return fallback
+    return EMPTY_CLAUDE
   }
 }
 
@@ -175,52 +201,74 @@ Be decisive. Pick the single best category.`
 
 export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
   const urlType = detectUrlType(rawUrl)
+  const hasApiKey = Boolean(process.env.ANTHROPIC_API_KEY)
 
   // ── Google Maps ──────────────────────────────────────────────────────────
+  // Fetch + follow redirects to resolve shortened maps.app.goo.gl URLs.
+  // The full URL has @LAT,LNG and /maps/place/NAME embedded.
   if (urlType === 'google_maps') {
-    const coords = extractMapsCoords(rawUrl)
-    const placeName = extractMapsPlaceName(rawUrl)
+    const fetched = await fetchAndParse(rawUrl)
+    const resolvedUrl = fetched?.finalUrl ?? rawUrl
+    const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
+    const html = fetched?.html ?? ''
 
-    const og = await fetchOgData(rawUrl)
-    const title = placeName ?? og.title
-    const category = categoryFromMapsDescription(og.description)
+    const coords =
+      extractMapsCoords(resolvedUrl) ??
+      // Fallback: Google sometimes embeds coords in the page HTML
+      findCoordsInText(html.slice(0, 50_000))
+
+    const placeName = extractMapsPlaceName(resolvedUrl)
+
+    // Clean up Google's "X - Google Maps" suffix from OG title
+    const cleanOgTitle = og.title?.replace(/\s*-\s*Google Maps\s*$/i, '').trim() ?? null
+
+    // Use Claude to classify (restaurant/hotel/place/event) — always, since
+    // the keyword heuristic was too weak. Falls back to 'place' if no API key.
+    const claude = hasApiKey
+      ? await classifyWithClaude(resolvedUrl, og, 'place')
+      : EMPTY_CLAUDE
+
+    const category: SaveCategory =
+      claude.category ?? 'place'
 
     return {
-      title,
-      subtitle: og.description ?? null,
+      title: claude.title ?? placeName ?? cleanOgTitle,
+      subtitle: claude.subtitle ?? og.description ?? null,
       category,
       imageUrl: og.image,
-      canonicalUrl: rawUrl,
+      canonicalUrl: resolvedUrl,
       coords,
-      note: null,
-      confidence: 'high',
+      note: claude.note,
+      confidence: claude.confidence === 'low' ? 'medium' : claude.confidence, // we know it's a place
       source: 'google_maps',
+      alternativeCategories: claude.alternativeCategories,
     }
   }
 
   // ── Instagram ────────────────────────────────────────────────────────────
   if (urlType === 'instagram') {
-    const og = await fetchOgData(rawUrl)
-    const hasApiKey = Boolean(process.env.ANTHROPIC_API_KEY)
+    const fetched = await fetchAndParse(rawUrl)
+    const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
 
     if (hasApiKey) {
       const claude = await classifyWithClaude(rawUrl, og)
       return {
         title: claude.title ?? og.title,
-        subtitle: claude.subtitle,
+        subtitle: claude.subtitle ?? og.description ?? null,
         category: claude.category,
         imageUrl: og.image,
         canonicalUrl: rawUrl,
         coords: null,
         note: claude.note,
-        confidence: claude.category ? 'medium' : 'low',
+        confidence: claude.category ? claude.confidence : 'low',
         source: 'ai',
+        alternativeCategories: claude.alternativeCategories,
       }
     }
 
     return {
       title: og.title,
-      subtitle: null,
+      subtitle: og.description ?? null,
       category: null,
       imageUrl: og.image,
       canonicalUrl: rawUrl,
@@ -233,11 +281,12 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
 
   // ── YouTube ──────────────────────────────────────────────────────────────
   if (urlType === 'youtube') {
-    const og = await fetchOgData(rawUrl)
+    const fetched = await fetchAndParse(rawUrl)
+    const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
     return {
       title: og.title,
       subtitle: og.siteName ?? null,
-      category: 'noted',   // YouTube doesn't cleanly map — let user override
+      category: 'noted',  // YouTube doesn't cleanly map — let user override
       imageUrl: og.image,
       canonicalUrl: rawUrl,
       coords: null,
@@ -248,31 +297,31 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
   }
 
   // ── Generic ──────────────────────────────────────────────────────────────
-  const og = await fetchOgData(rawUrl)
-  const hasApiKey = Boolean(process.env.ANTHROPIC_API_KEY)
+  const fetched = await fetchAndParse(rawUrl)
+  const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
 
   if (hasApiKey) {
     const claude = await classifyWithClaude(rawUrl, og)
     return {
       title: claude.title ?? og.title,
-      subtitle: claude.subtitle,
+      subtitle: claude.subtitle ?? og.description ?? null,
       category: claude.category,
       imageUrl: og.image,
-      canonicalUrl: rawUrl,
+      canonicalUrl: fetched?.finalUrl ?? rawUrl,
       coords: null,
       note: claude.note,
-      confidence: claude.category ? 'high' : 'medium',
+      confidence: claude.category ? claude.confidence : 'low',
       source: 'ai',
+      alternativeCategories: claude.alternativeCategories,
     }
   }
 
-  // Fallback: pure OG heuristic, no AI
   return {
     title: og.title,
     subtitle: og.description ?? null,
     category: null,
     imageUrl: og.image,
-    canonicalUrl: rawUrl,
+    canonicalUrl: fetched?.finalUrl ?? rawUrl,
     coords: null,
     note: null,
     confidence: og.title ? 'medium' : 'low',

@@ -10,6 +10,7 @@ export function detectUrlType(url: string): UrlType {
     if (
       hostname === 'maps.google.com' ||
       hostname === 'maps.app.goo.gl' ||
+      hostname === 'goo.gl' ||
       (hostname.includes('google.com') && parsed.pathname.startsWith('/maps'))
     ) {
       return 'google_maps'
@@ -40,18 +41,36 @@ export function detectUrlType(url: string): UrlType {
 export function extractMapsCoords(url: string): MapsCoords {
   try {
     const parsed = new URL(url)
-    // Shortened URLs never have coords inline
-    if (parsed.hostname === 'maps.app.goo.gl') return null
+    if (parsed.hostname === 'maps.app.goo.gl' || parsed.hostname === 'goo.gl') return null
 
-    // Match @LAT,LNG or @LAT,LNG,ZOOM
-    const match = parsed.pathname.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/)
-    if (!match) return null
+    // @LAT,LNG (most common: zoom view, place page)
+    const at = parsed.pathname.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/)
+    if (at) {
+      const lat = parseFloat(at[1])
+      const lng = parseFloat(at[2])
+      if (!isNaN(lat) && !isNaN(lng)) return { lat, lng }
+    }
 
-    const lat = parseFloat(match[1])
-    const lng = parseFloat(match[2])
-    if (isNaN(lat) || isNaN(lng)) return null
+    // !3dLAT!4dLNG inside data param (place pages sometimes have this format)
+    const data = parsed.pathname.match(/!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/)
+    if (data) {
+      const lat = parseFloat(data[1])
+      const lng = parseFloat(data[2])
+      if (!isNaN(lat) && !isNaN(lng)) return { lat, lng }
+    }
 
-    return { lat, lng }
+    // ?q=LAT,LNG (search-by-coords URLs)
+    const q = parsed.searchParams.get('q')
+    if (q) {
+      const m = q.match(/^(-?\d+\.?\d*),(-?\d+\.?\d*)$/)
+      if (m) {
+        const lat = parseFloat(m[1])
+        const lng = parseFloat(m[2])
+        if (!isNaN(lat) && !isNaN(lng)) return { lat, lng }
+      }
+    }
+
+    return null
   } catch {
     return null
   }
@@ -67,10 +86,33 @@ export function extractMapsPlaceName(url: string): string | null {
     const match = parsed.pathname.match(/\/maps\/place\/([^/]+)/)
     if (!match) return null
 
-    // Replace + with space before decoding
     const raw = match[1].replace(/\+/g, ' ')
     return decodeURIComponent(raw)
   } catch {
     return null
   }
+}
+
+/**
+ * Extract lat/lng from any text by scanning for the @LAT,LNG pattern OR
+ * !3dLAT!4dLNG. Used as a fallback to scan HTML body when URL parsing fails.
+ */
+export function findCoordsInText(text: string): MapsCoords {
+  const at = text.match(/@(-?\d{1,3}\.\d+),(-?\d{1,3}\.\d+)/)
+  if (at) {
+    const lat = parseFloat(at[1])
+    const lng = parseFloat(at[2])
+    if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      return { lat, lng }
+    }
+  }
+  const data = text.match(/!3d(-?\d{1,3}\.\d+)!4d(-?\d{1,3}\.\d+)/)
+  if (data) {
+    const lat = parseFloat(data[1])
+    const lng = parseFloat(data[2])
+    if (!isNaN(lat) && !isNaN(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) {
+      return { lat, lng }
+    }
+  }
+  return null
 }

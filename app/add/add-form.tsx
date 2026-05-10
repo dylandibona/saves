@@ -31,7 +31,7 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
   const [isPending, startTransition] = useTransition()
   const [enriched, setEnriched] = useState<EnrichedUrl | null>(null)
 
-  // Track whether the user has manually typed into title / note
+  // Track whether the user has manually typed into title / note / url
   const titleTouched = useRef(false)
   const noteTouched = useRef(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -41,18 +41,33 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<SaveCategory>(categories[0])
+  const [categoryAuto, setCategoryAuto] = useState(false)
   const [suggestedNote, setSuggestedNote] = useState<string | null>(null)
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
 
-  const runEnrichment = useCallback((url: string) => {
-    if (!url.startsWith('http')) return
+  // Whether to show the disambiguation prompt for category
+  const showDisambig =
+    enriched &&
+    enriched.alternativeCategories &&
+    enriched.alternativeCategories.length > 0 &&
+    enriched.confidence !== 'high' &&
+    categoryAuto
+
+  const runEnrichment = useCallback((urlToEnrich: string) => {
+    if (!urlToEnrich.startsWith('http')) return
 
     startTransition(async () => {
       try {
-        const result = await enrichUrl(url)
+        const result = await enrichUrl(urlToEnrich)
 
         setEnriched(result)
         setCoords(result.coords)
+
+        // If the URL was a shortened maps link that resolved to a longer URL,
+        // update the input field so the user sees the canonical form.
+        if (result.canonicalUrl && result.canonicalUrl !== urlToEnrich) {
+          setUrl(result.canonicalUrl)
+        }
 
         // Pre-fill title only if user hasn't typed
         if (!titleTouched.current && result.title) {
@@ -62,6 +77,7 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
         // Pre-select category if confidence is high or medium
         if (result.category && (result.confidence === 'high' || result.confidence === 'medium')) {
           setSelectedCategory(result.category)
+          setCategoryAuto(true)
         }
 
         // Suggested note — ghost text
@@ -83,7 +99,7 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
     [runEnrichment]
   )
 
-  // If we land on this page with ?url=... (from PWA share target), enrich immediately
+  // If we land on this page with ?url=... (from PWA share / iOS shortcut), enrich immediately
   useEffect(() => {
     if (initialUrl && initialUrl.startsWith('http')) {
       runEnrichment(initialUrl)
@@ -92,8 +108,11 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const heroImage = enriched?.imageUrl ?? null
+  const subtitle = enriched?.subtitle ?? null
+
   return (
-    <form ref={formRef} action={addSave} className="space-y-10">
+    <form ref={formRef} action={addSave} className="space-y-8">
 
       {/* URL field */}
       <div className="space-y-1.5">
@@ -110,7 +129,6 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
           className={field}
           onBlur={(e) => runEnrichment(e.target.value)}
           onPaste={(e) => {
-            // Let browser update value first, then debounce
             const pasted = e.clipboardData.getData('text')
             handleUrlChange(pasted)
           }}
@@ -125,8 +143,32 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
         )}
       </div>
 
-      {/* Hidden coords field */}
+      {/* Enrichment preview — hero image + subtitle, surfaces what we pulled */}
+      {(heroImage || subtitle) && (
+        <div
+          className="rounded-2xl overflow-hidden"
+          style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}
+        >
+          {heroImage && (
+            <div className="relative aspect-[16/9] overflow-hidden bg-white/[0.03]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={heroImage} alt="" className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[oklch(0.10_0.08_262)]/30 to-transparent" />
+            </div>
+          )}
+          {subtitle && (
+            <div className="px-4 py-3">
+              <p className="text-[13px] text-white/55 leading-relaxed line-clamp-3">{subtitle}</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Hidden enrichment fields forwarded to addSave */}
       <input type="hidden" name="coords" value={coords ? JSON.stringify(coords) : ''} />
+      <input type="hidden" name="subtitle" value={subtitle ?? ''} />
+      <input type="hidden" name="hero_image_url" value={heroImage ?? ''} />
+      <input type="hidden" name="location_address" value={enriched?.subtitle ?? ''} />
 
       {/* Title field */}
       <div className="space-y-1.5">
@@ -150,7 +192,47 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
 
       {/* Category */}
       <div className="space-y-3">
-        <p className="font-mono text-[10px] tracking-widest text-white/30">Category</p>
+        <div className="flex items-baseline justify-between">
+          <p className="font-mono text-[10px] tracking-widest text-white/30">Category</p>
+          {categoryAuto && (
+            <p className="font-mono text-[9px] tracking-wider text-white/20">auto-detected</p>
+          )}
+        </div>
+
+        {/* Disambiguation prompt — only shows when enrichment was uncertain */}
+        {showDisambig && (
+          <div
+            className="rounded-xl px-3 py-2.5 space-y-2"
+            style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+          >
+            <p className="font-mono text-[10px] text-white/45">
+              Not 100% sure — is it a {CATEGORY_LABELS[selectedCategory]}, or one of these?
+            </p>
+            <div className="flex gap-1.5 flex-wrap">
+              {enriched.alternativeCategories!.map(cat => {
+                const color = CATEGORY_COLORS[cat] ?? '#888'
+                return (
+                  <button
+                    type="button"
+                    key={cat}
+                    onClick={() => {
+                      setSelectedCategory(cat)
+                    }}
+                    className="font-mono text-[10px] px-2.5 py-1 rounded-full transition-colors duration-150"
+                    style={{
+                      background: 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${color}66`,
+                      color: color,
+                    }}
+                  >
+                    {CATEGORY_LABELS[cat]}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
         <div className="flex gap-2 flex-wrap">
           {categories.map((cat) => {
             const color = CATEGORY_COLORS[cat]
@@ -163,7 +245,10 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
                   value={cat}
                   required
                   checked={checked}
-                  onChange={() => setSelectedCategory(cat)}
+                  onChange={() => {
+                    setSelectedCategory(cat)
+                    setCategoryAuto(false)  // user override; hide disambig
+                  }}
                   className="sr-only peer"
                 />
                 <span
