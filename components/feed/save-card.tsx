@@ -1,25 +1,48 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { formatRelativeTime, CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/utils/time'
+import { getUserInitials, getUserColor } from '@/lib/utils/identity'
 import type { SaveWithRecommenders } from '@/lib/data/saves'
 
-function RecommenderDots({ captures }: { captures: SaveWithRecommenders['captures'] }) {
+/**
+ * Pills showing who in the household saved this — distinct from external
+ * recommenders (Sprint 2). For now: the unique users from this save's
+ * captures, each rendered as a small initials chip in their own color.
+ */
+function SaverPills({ captures }: { captures: SaveWithRecommenders['captures'] }) {
   const seen = new Set<string>()
-  const recs = captures
-    .flatMap(c => (c.recommenders ? [c.recommenders] : []))
-    .filter(r => {
-      if (seen.has(r.id)) return false
-      seen.add(r.id)
-      return r.kind !== 'self' && r.color
+  const savers = captures
+    .map(c => c.users)
+    .filter((u): u is NonNullable<typeof u> => Boolean(u))
+    .filter(u => {
+      if (seen.has(u.id)) return false
+      seen.add(u.id)
+      return true
     })
-  if (recs.length === 0) return null
+
+  if (savers.length === 0) return null
+
   return (
     <div className="flex items-center gap-1">
-      {recs.slice(0, 5).map(r => (
-        <span key={r.id} title={r.display_name}
-          className="w-1.5 h-1.5 rounded-full shrink-0"
-          style={{ backgroundColor: r.color ?? '#666' }} />
-      ))}
+      {savers.slice(0, 3).map(u => {
+        const initials = getUserInitials(u)
+        const color = getUserColor(u)
+        return (
+          <span
+            key={u.id}
+            title={u.display_name ?? u.email}
+            className="inline-flex items-center justify-center font-mono text-[9px] tracking-wider tabular-nums w-5 h-5 rounded-full"
+            style={{
+              background: `linear-gradient(180deg, ${color}cc 0%, ${color}88 100%)`,
+              border: `1px solid ${color}`,
+              color: 'oklch(0.10 0.09 262)',
+              boxShadow: `inset 0 1px 0 rgba(255,255,255,0.32), 0 1px 0 rgba(0,0,0,0.5)`,
+            }}
+          >
+            {initials}
+          </span>
+        )
+      })}
     </div>
   )
 }
@@ -58,7 +81,7 @@ export function SaveCard({ save }: { save: SaveWithRecommenders }) {
 
         {/* Meta row */}
         <div className="flex items-center gap-2 pt-0.5">
-          <RecommenderDots captures={save.captures} />
+          <SaverPills captures={save.captures} />
           {save.capture_count >= 2 && (
             <span className="font-mono text-[10px] text-white/30 tabular-nums">
               {save.capture_count}×

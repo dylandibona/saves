@@ -5,6 +5,8 @@ import { Nav } from '@/components/nav'
 import { getSaveById } from '@/lib/data/saves'
 import { getHouseholdId } from '@/lib/data/household'
 import { CATEGORY_LABELS, CATEGORY_COLORS, formatRelativeTime } from '@/lib/utils/time'
+import { getUserInitials, getUserColor } from '@/lib/utils/identity'
+import { DeleteButton } from './delete-button'
 import type { Metadata } from 'next'
 import type { Database } from '@/lib/types/supabase'
 
@@ -188,6 +190,9 @@ export default async function SaveDetailPage({ params }: { params: Promise<{ id:
             </svg>
             View on Map
           </Link>
+
+          {/* Delete — visually de-emphasized, opens confirmation modal */}
+          <DeleteButton saveId={save.id} saveTitle={save.title} />
         </div>
 
         {/* Coordinates pill (subtle, informational) */}
@@ -208,22 +213,44 @@ export default async function SaveDetailPage({ params }: { params: Promise<{ id:
               <div className="absolute left-[5px] top-2 bottom-2 w-px bg-white/[0.07]" aria-hidden />
 
               {save.captures.map((capture) => {
-                const recColor = capture.recommenders?.color ?? color
+                // Self captures: show user initials in user's color.
+                // External recommenders (future): show recommender display_name + their color.
+                const isSelf = capture.recommenders?.kind === 'self' || !capture.recommenders
+                const user = capture.users
+                const userInitials = user ? getUserInitials(user) : null
+                const userColor = user ? getUserColor(user) : color
+                const dotColor = isSelf ? userColor : (capture.recommenders?.color ?? color)
+                const displayName = isSelf
+                  ? (user?.display_name ?? userInitials ?? 'You')
+                  : (capture.recommenders?.display_name ?? 'Unknown')
+
                 return (
-                  <li key={capture.id} className="relative pl-6">
-                    {/* Dot */}
-                    <span
-                      className="absolute left-0 top-[6px] w-[11px] h-[11px] rounded-full ring-2"
-                      style={{
-                        background: recColor,
-                        boxShadow: `0 0 0 2px oklch(0.10 0.08 262), 0 2px 6px ${recColor}55`,
-                      }}
-                    />
+                  <li key={capture.id} className="relative pl-7">
+                    {/* Initials chip OR dot */}
+                    {isSelf && userInitials ? (
+                      <span
+                        className="absolute left-0 top-[2px] inline-flex items-center justify-center w-[22px] h-[22px] rounded-full font-mono text-[9px] tracking-wider tabular-nums"
+                        style={{
+                          background: `linear-gradient(180deg, ${userColor}cc 0%, ${userColor}88 100%)`,
+                          border: `1px solid ${userColor}`,
+                          color: 'oklch(0.10 0.09 262)',
+                          boxShadow: `0 0 0 2px oklch(0.10 0.08 262), inset 0 1px 0 rgba(255,255,255,0.32), 0 2px 6px ${userColor}33`,
+                        }}
+                      >
+                        {userInitials}
+                      </span>
+                    ) : (
+                      <span
+                        className="absolute left-[5px] top-[8px] w-[11px] h-[11px] rounded-full"
+                        style={{
+                          background: dotColor,
+                          boxShadow: `0 0 0 2px oklch(0.10 0.08 262), 0 2px 6px ${dotColor}55`,
+                        }}
+                      />
+                    )}
                     <div className="space-y-0.5">
                       <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-sm text-white/82">
-                          {capture.recommenders?.display_name ?? 'You'}
-                        </span>
+                        <span className="text-sm text-white/82">{displayName}</span>
                         {capture.sources && (
                           <span className="font-mono text-[10px] text-white/30">
                             via {capture.sources.display_name}

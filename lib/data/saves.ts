@@ -11,6 +11,8 @@ export async function getFeedSaves(householdId: string) {
       id, title, subtitle, category, hero_image_url,
       capture_count, last_captured_at, status,
       captures(
+        user_id,
+        users(id, email, display_name, capture_color),
         recommenders(id, display_name, color, kind)
       )
     `)
@@ -37,8 +39,9 @@ export async function getSaveById(id: string) {
     .select(`
       *,
       captures(
-        id, note, capture_method, captured_at,
-        recommenders(id, display_name, handle, platform, color),
+        id, note, capture_method, captured_at, user_id,
+        users(id, email, display_name, capture_color),
+        recommenders(id, display_name, handle, platform, color, kind),
         sources(id, display_name, domain, icon_url)
       ),
       variations(id, label, delta, notes)

@@ -19,15 +19,9 @@
   <!-- Jewel orb echoes -->
   <circle cx="120" cy="140" r="180" fill="url(#orb1)"/>
   <circle cx="400" cy="380" r="160" fill="url(#orb2)"/>
-  <!-- Italic serif "S" — matches the wordmark voice -->
-  <text
-    x="50%"
-    y="58%"
-    text-anchor="middle"
-    font-family="Georgia, 'Times New Roman', serif"
-    font-style="italic"
-    font-weight="500"
-    font-size="320"
-    fill="rgba(255,255,255,0.95)"
-  >S</text>
+  <!-- Block S — noun-s-block-1114651, scaled into 512px viewport, centered -->
+  <!-- Original path is on a 1200pt canvas; scale to ~280px and translate to center (~116, 116) -->
+  <g transform="translate(116 116) scale(0.234)">
+    <path d="m480 600h-240v240h480v-240h240v-240h-480z" fill="rgba(255,255,255,0.95)"/>
+  </g>
 </svg>

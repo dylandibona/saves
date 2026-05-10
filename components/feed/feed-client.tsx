@@ -68,6 +68,13 @@ export function FeedClient({
     (initialCategory as Cat) ?? null
   )
 
+  // Only surface category chips that have at least one save.
+  // Stable order: keep the canonical category order from CATEGORY_LABELS.
+  const availableCats = useMemo(() => {
+    const present = new Set(saves.map(s => s.category as Cat))
+    return ALL_CATS.filter(c => present.has(c))
+  }, [saves])
+
   const filtered = useMemo(() => {
     let r = saves
     // Near Me or no category filter: show all
@@ -133,8 +140,8 @@ export function FeedClient({
           }
         />
 
-        {/* Category chips */}
-        {ALL_CATS.map(cat => (
+        {/* Category chips — only ones that have saves */}
+        {availableCats.map(cat => (
           <Chip
             key={cat}
             label={CATEGORY_LABELS[cat]}
