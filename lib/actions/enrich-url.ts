@@ -42,11 +42,23 @@ type FetchResult = {
 const USER_AGENT =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
+// Some sites (Instagram, TikTok, certain news) return richer OG data to
+// social-bot user agents than to a regular browser UA. Facebook's preview
+// crawler is the most permissive — and Instagram especially is built to
+// feed it well.
+const FB_BOT_UA =
+  'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
+
+function pickUserAgent(url: string): string {
+  if (url.includes('instagram.com')) return FB_BOT_UA
+  return USER_AGENT
+}
+
 async function fetchAndParse(url: string): Promise<FetchResult | null> {
   try {
     const res = await fetch(url, {
       headers: {
-        'User-Agent': USER_AGENT,
+        'User-Agent': pickUserAgent(url),
         Accept: 'text/html,application/xhtml+xml',
       },
       signal: AbortSignal.timeout(8000),
