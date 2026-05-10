@@ -37,8 +37,6 @@ export async function addSave(formData: FormData) {
     .eq('kind', 'self')
     .single()
 
-  let saveId: string
-
   // Check for existing save with same canonical_url
   if (url) {
     const { data: existing } = await supabase
@@ -77,7 +75,7 @@ export async function addSave(formData: FormData) {
     .single()
 
   if (error || !newSave) throw new Error(error?.message ?? 'Failed to create save')
-  saveId = newSave.id
+  const saveId = newSave.id
 
   // Create first capture
   await supabase.from('captures').insert({

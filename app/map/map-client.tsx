@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useCallback, useRef } from 'react'
-import { GoogleMap, useJsApiLoader, Marker, InfoWindow } from '@react-google-maps/api'
+import { useState, useCallback } from 'react'
+import { GoogleMap, useJsApiLoader, Marker } from '@react-google-maps/api'
 import { CATEGORY_COLORS, CATEGORY_LABELS } from '@/lib/utils/time'
 import type { MapSave } from '@/lib/data/map-saves'
 import type { Database } from '@/lib/types/supabase'
@@ -139,7 +139,6 @@ export function MapClient({ saves }: { saves: MapSave[] }) {
   const [selectedSave, setSelectedSave] = useState<MapSave | null>(null)
   const [activeCategory, setActiveCategory] = useState<Cat | null>(null)
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
-  const userMarkerRef = useRef<google.maps.Marker | null>(null)
 
   const availableCategories = [...new Set(saves.map(s => s.category))] as Cat[]
   const filteredSaves = activeCategory ? saves.filter(s => s.category === activeCategory) : saves
