@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Fraunces, Space_Mono, VT323, Pixelify_Sans, Silkscreen } from "next/font/google";
 import "./globals.css";
-import "leaflet/dist/leaflet.css";
 
 const geist = Geist({
   variable: "--font-sans",
