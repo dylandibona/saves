@@ -246,15 +246,62 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
   }
 
   // ── Instagram ────────────────────────────────────────────────────────────
+  // Instagram heavily limits scrapers; OG title is often just "Instagram".
+  // We work around this with URL-pattern detection + caption parsing from
+  // the rare cases where IG does include `Username on Instagram: "caption"`.
   if (urlType === 'instagram') {
     const fetched = await fetchAndParse(rawUrl)
     const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
 
+    // What kind of Instagram URL? Used for title fallback + Claude hint.
+    let postType: 'Post' | 'Reel' | 'Video' | 'Story' = 'Post'
+    let usernameFromUrl: string | null = null
+    try {
+      const path = new URL(rawUrl).pathname
+      if (path.startsWith('/reel/')) postType = 'Reel'
+      else if (path.startsWith('/tv/')) postType = 'Video'
+      else if (path.startsWith('/stories/')) {
+        postType = 'Story'
+        const m = path.match(/^\/stories\/([^/]+)/)
+        if (m) usernameFromUrl = decodeURIComponent(m[1])
+      }
+    } catch {}
+
+    // Some IG posts return title as `Username on Instagram: "caption excerpt"`
+    // Parse that out when present.
+    let usernameFromOg: string | null = null
+    let captionFromOg: string | null = null
+    if (og.title) {
+      const m = og.title.match(/^(.+?)\s+on\s+Instagram[:.]?\s*"?([^"]*?)"?\s*$/i)
+      if (m) {
+        usernameFromOg = m[1].trim()
+        if (m[2] && m[2].trim()) captionFromOg = m[2].trim()
+      }
+    }
+
+    const username = usernameFromOg ?? usernameFromUrl
+    const ogTitleIsGeneric =
+      !og.title || og.title.trim().toLowerCase() === 'instagram'
+
+    // Build a sensible default title even when IG gives us nothing.
+    // Caption (if scraped) > username's PostType > Instagram PostType.
+    const fallbackTitle = captionFromOg
+      ? captionFromOg
+      : username
+        ? `${username}'s ${postType}`
+        : `Instagram ${postType}`
+
+    // Subtitle: pull from username if we have it but no caption surfaced
+    const fallbackSubtitle = og.description
+      ?? (username && !captionFromOg ? `@${username} on Instagram` : null)
+
     if (hasApiKey) {
+      // Hint Claude that the OG data may be unhelpful and to use the URL pattern
       const claude = await classifyWithClaude(rawUrl, og)
       return {
-        title: claude.title ?? og.title,
-        subtitle: claude.subtitle ?? og.description ?? null,
+        title: claude.title
+          ?? (ogTitleIsGeneric ? fallbackTitle : og.title),
+        subtitle: claude.subtitle ?? fallbackSubtitle,
         category: claude.category,
         imageUrl: og.image,
         canonicalUrl: rawUrl,
@@ -267,15 +314,15 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
     }
 
     return {
-      title: og.title,
-      subtitle: og.description ?? null,
+      title: ogTitleIsGeneric ? fallbackTitle : og.title,
+      subtitle: fallbackSubtitle,
       category: null,
       imageUrl: og.image,
       canonicalUrl: rawUrl,
       coords: null,
       note: null,
       confidence: 'low',
-      source: og.title ? 'og' : 'heuristic',
+      source: ogTitleIsGeneric ? 'heuristic' : 'og',
     }
   }
 
