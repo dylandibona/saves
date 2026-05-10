@@ -1,49 +1,209 @@
 # CLAUDE.md
 
-Guidance for Claude Code when working in this repository. Keep this file current — update it whenever new patterns, decisions, or issues are discovered.
+Guidance for Claude Code when working in this repository. **Keep this file current** — update it whenever new patterns, decisions, or issues are discovered. The next session reads this first.
+
+> **Status:** Working private build for Dylan + Keelin. Not yet "production, general-public ready." See [The gap to production-public](#the-gap-to-production-public) before scoping new work.
 
 ---
 
-## What this is
+## 1. What this is
 
-**Saves** is a personal recommendation library for Dylan and Keelin (a couple). They share restaurants, recipes, workouts, TV shows, movies, and places via Instagram DMs — those recommendations get buried and lost. Saves captures, classifies, and surfaces them in a calm, searchable library.
+**Saves** is a personal recommendation library. The destination, not a bookmark. The save itself contains enough context (ingredients, sets, hours, summary, hero image) that the user never has to click through to the source again.
 
-**Reference point:** [Recime](https://www.recime.app/), but for *every* category — not just recipes. Recime proves the "share-from-anywhere → AI-extracts-structure → beautiful library" format works for one domain (recipes); Saves widens the thesis to all of them. Same care, any save type. Implications:
-- Per-category richness via the `canonical_data` JSONB column (recipes → ingredients/steps; places → hours/photos; movies → runtime/director). Schema is already shaped for this.
-- The whole product is **frictionless capture** + **calm library**. The background `/api/share-save` endpoint and iOS Shortcut are the equivalent of Recime's "share from Instagram, structured" magic.
-- Visual richness — hero images, jewel-tone category, real metadata. Not a list of bare links.
+**Origin story:** Dylan and Keelin (a couple) share restaurants, recipes, workouts, TV shows, movies, and places via Instagram DMs. Those recommendations get buried and lost. Saves captures, enriches, and surfaces them in a calm, searchable library shared between them.
+
+**Reference point:** [Recime](https://www.recime.app/), but for *every* category — not just recipes. Recime proves the "share-from-anywhere → AI-extracts-structure → beautiful library" format. Saves widens the thesis to all save types: recipes, restaurants, places, hotels, shows, articles, workouts, products, podcasts, music, books.
 
 **Design principle:** a beautifully kept notebook, not a feed. No streaks, no engagement nudges, no gamification. The app should feel like a physical object — jewel-toned, dimensional, tactile. 80% mobile usage.
 
-**Users:** Dylan (`dylan@dylandibona.com`) + Keelin. They share a single household in the data model. Every save belongs to the household, not an individual user.
+**Vision tension to navigate:**
+- *Frictionless capture* (share from anywhere → in) vs *meaningful structure* (per-category extracted data)
+- *Personal/household* (D + K) vs *production/public* (multi-tenant, polished onboarding) — see Section 8
 
 ---
 
-## Stack (current, as-built)
+## 2. Production environment
+
+| Surface | Where | Notes |
+|---|---|---|
+| App | `https://saves.dylandibona.com` | Cloudflare DNS → Vercel |
+| Repo | `https://github.com/dylandibona/saves` | dylandibona personal account; commits authored as `Dylan DiBona <dylan@dylandibona.com>` |
+| Vercel project | Personal "dbone" account, project name `saves` | Hobby tier, "Dylan's projects" team |
+| Supabase project | ref `lqmjglpzrfcpnpshbjwo` | Account: dylandibona (NOT Natrx) |
+| Google OAuth | Cloud Console "Saves" project | Authorized origins: `saves.dylandibona.com`. Authorized redirect URI: `https://lqmjglpzrfcpnpshbjwo.supabase.co/auth/v1/callback` |
+| Apple SIWA | Services ID `app.saves.siwa` | Domain `saves.dylandibona.com` registered. Domain verification file pending. |
+| Google Maps API | Cloud Console "Saves" project | Maps JavaScript API enabled. Currently unrestricted — needs HTTP referrer restriction. |
+
+---
+
+## 3. Stack
 
 | Layer | Technology | Notes |
 |---|---|---|
-| Framework | Next.js 15 App Router | Turbopack in dev; webpack in prod build |
-| Language | TypeScript (strict) | `npx tsc --noEmit` must pass clean |
+| Framework | Next.js 15.5.15 App Router | Turbopack in dev, **webpack in prod** (Turbopack prod build is unstable on Vercel) |
+| Language | TypeScript (strict) | `npx tsc --noEmit` must pass clean before pushing |
 | Styling | Tailwind CSS v4 | `@import "tailwindcss"` syntax, NOT v3 plugin |
-| Components | shadcn/ui (minimal use) | Only Badge, Button, Input, Label, Separator added |
-| Animation | Framer Motion | Page transitions via `app/template.tsx`; chip hover/tap |
+| Components | shadcn/ui (minimal) | Only Badge, Button, Input, Label, Separator added |
+| Animation | Framer Motion | Page transitions via `app/template.tsx`; chip hover/tap (no spring, no glow — see design rules) |
 | Database | Supabase Postgres + PostGIS | RLS on all tables |
 | Auth | Supabase Auth | Magic link + Apple SIWA + Google OAuth |
-| Map | Google Maps JS API via `@react-google-maps/api` | Custom dark style; needs `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` |
+| Map | Google Maps JS API via `@react-google-maps/api` | Custom dark style. Needs `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` |
 | AI | Anthropic claude-opus-4-5 | Server-side only, lazy import; graceful fallback if no key |
-| Hosting | Vercel | Production: `https://saves.dylandibona.com` (Cloudflare DNS) |
+| Hosting | Vercel | Production: `https://saves.dylandibona.com` |
+| Image generation | sharp | DevDep only; `npm run icons` regenerates PWA icons from SVG |
 
-**Key packages:**
-- `@supabase/ssr` — SSR-safe Supabase client
-- `@react-google-maps/api` — Google Maps React wrapper
-- `@anthropic-ai/sdk` — lazy-imported server-side only
-- `framer-motion` — animations
-- `leaflet` + `react-leaflet` — installed but superseded by Google Maps; can be removed
+### Why no middleware
+We deleted `middleware.ts` because Vercel's Edge runtime kept crashing with `__dirname is not defined` (root cause: `next.config.ts` had `path.resolve(__dirname)`; ESM module loading didn't have it). After multiple attempted fixes including switching to Node.js runtime, the bulletproof solution was to remove middleware entirely and gate auth in pages via `lib/auth/require-user.ts`. Don't reintroduce middleware without testing on Vercel first.
+
+### What was tried and abandoned
+- **Leaflet + Carto Dark Matter tiles** — first map provider, replaced by Google Maps for richer interaction + familiar UX. `leaflet`, `react-leaflet`, `@types/leaflet` removed from deps; CSS overrides removed from globals.css.
+- **`next build --turbopack`** — Turbopack production builds were causing silent failures on Vercel. Stable webpack build works fine.
+- **iOS Shortcut WebView sheet** — opens a sheet over Instagram, but breaks on first-login because 2FA forces an app-switch and the sheet collapses. Replaced by background `/api/share-save` API.
+- **iOS Shortcut "Open URLs"** — opens default browser (Chrome for the user), not a sheet. Acceptable only if PWA is installed — then iOS routes the URL to the standalone PWA app instead.
 
 ---
 
-## Working directory
+## 4. What's actually shipped + verified
+
+End-to-end tested in production by Dylan unless noted otherwise:
+
+| Feature | Status | Notes |
+|---|---|---|
+| **Sign in via Google OAuth** | ✅ Working | 2FA flow completes; user lands in feed |
+| **Sign in via magic link** | ⚠️ Configured, not verified | Should work — same Supabase setup |
+| **Sign in via Apple SIWA** | ⚠️ Configured, domain verification pending | Won't work for new sign-ins until Apple verifies the domain |
+| **Feed at `/`** | ✅ Working | Live search, jewel-tone category chips (filtered to categories that have saves), staggered framer-motion animation, save cards with hero image + DD/KL initials pill + lock icon for private saves |
+| **Add at `/add`** | ✅ Working | Smart URL enrichment fires on paste/blur with 300ms debounce. Hero image + subtitle preview surface. Hidden inputs forward title/subtitle/hero/coords/extracted to action. |
+| **Add — Google Maps URLs** | ✅ Working well | Resolves shortened `maps.app.goo.gl/...` URLs via fetch+redirect. Extracts `@LAT,LNG` from path AND from `!3dLAT!4dLNG` data params. Place name from `/maps/place/...`. Claude classifies as restaurant/hotel/place/event with confidence. |
+| **Add — Instagram URLs** | ⚠️ Partially working | Uses `facebookexternalhit/1.1` UA for richer OG. Title falls back to `username's Reel` or `Instagram Reel` if Instagram blocks scraping. Captions hit-or-miss. Image usually loads. |
+| **Add — generic article/recipe URLs** | ✅ Working well | OG metadata + Claude classification; recipe sites with JSON-LD parse cleanly. |
+| **Per-category extraction** | ✅ Shipped, not heavily tested | Claude pulls ingredients/instructions/time for recipes; exercises/sets/duration/equipment for workouts; address/hours/phone/website for places; author/summary/readTime for articles; year/runtime/director for movies; etc. Stored in `canonical_data.extracted`. |
+| **Save detail page** | ✅ Working | Hero image, jewel category chip, Fraunces title, captures timeline with DD/KL initials pill OR external recommender dot, action row (Open URL / Open in Maps / View on Map / Delete), per-category extracted section. Lock icon when private. |
+| **Map at `/map`** | ✅ Working | Custom dark sapphire Google Maps style. Jewel SVG markers per category. Tap marker → bottom-sheet card. "Near Me" geolocation button. Category filter strip. Empty state when no saves have coords. |
+| **Save visibility toggle** | ✅ Working | Shared (default) vs Just me. RLS enforced at DB level — partner literally can't see private saves. Lock icon shown in feed and detail. |
+| **Delete save** | ✅ Working | Confirmation modal (Framer Motion). Soft-delete via `status='archived'` so dedup logic doesn't resurrect on re-add. |
+| **DD/KL identity pills** | ✅ Working | Initials chip in user color on feed + detail. Mapping in `lib/utils/identity.ts` — explicit `dylan→DD, keelin→KL` overrides; falls back to email local part. |
+| **Animated wordmark** | ✅ Working | "Saves" letter-by-letter cycles between Pixelify Sans, VT323, Silkscreen on staggered timers. |
+| **Settings page at `/settings`** | ✅ Working | Token generate/show/copy/regenerate. Step-by-step Shortcut config (instructions need work — see backlog). |
+| **`POST /api/share-save`** | ✅ Working server-side | Token auth, runs enrichment, dedups by canonical_url, creates save + capture. Logs to Vercel runtime. Not yet integrated end-to-end with a working Shortcut. |
+| **PWA manifest + share_target** | ⚠️ Manifest configured, not yet validated end-to-end | When installed via Safari "Add to Home Screen", iOS share sheet should route shares to the PWA app. Needs install + test. |
+| **PWA icons** | ✅ Working | SVG (noun-s-block tetris-S on sapphire jewel base) + 192/512 maskable PNGs + 180px apple-touch-icon + 32px favicon, all generated from `public/icon.svg` via `npm run icons`. |
+| **Sign out** | ✅ Working | Server action via Nav component. |
+
+---
+
+## 5. What's rough or unverified
+
+| Area | What's rough | Why it matters |
+|---|---|---|
+| **iOS Shortcut config** | Apple's Shortcuts UI varies by iOS version; the manual setup walkthrough on `/settings` doesn't match what users actually see. User got stuck mid-config. | This was supposed to be the "stays in Instagram" path. Replacement: distribute a pre-built `.shortcut` via iCloud share link (one-tap install), or rely on PWA Share Target instead. |
+| **PWA Share Target** | Code is in place (`public/manifest.json` + `app/share/route.ts`) but never validated end-to-end on a real device. | Primary path forward for "share from Instagram" UX — needs installation + test. |
+| **Existing pre-extraction saves** | Saves created before the extraction feature have empty `canonical_data.extracted`. No backfill or re-process action exists. | First few saves Dylan made look threadbare on the detail page. Workaround: delete + re-share. |
+| **Keelin onboarding** | She hasn't signed up yet. Needs to go through Google/magic-link flow. Her self-recommender will be created by the trigger but `display_name` won't be set; identity helper has hardcoded `keelin→KL` mapping that depends on her email containing "keelin". | Single-user app right now. |
+| **Apple SIWA** | Domain verification file (`apple-developer-domain-association.txt`) needs to be served at `/.well-known/`. Apple will reject sign-ins until done. | Anyone trying Apple sign-in fails silently or sees Apple's error page. |
+| **Google Maps API key** | Currently unrestricted. Anyone can use it from any domain by reading the bundle. | Security/billing risk — should restrict to `saves.dylandibona.com/*` (and `localhost:3000/*` for dev). |
+| **Hardcoded user mappings** | `lib/utils/identity.ts` has explicit `dylan→DD, keelin→KL` matched by email substring. | Fine for two known users; doesn't scale to public sign-ups. Need real user `display_name` field used + fallback initials computed from name parts. |
+| **No edit save UI** | Once saved, can't edit title/category/note/visibility from the UI. Must delete + re-add. | Mid-priority polish gap. |
+| **No Keelin invite flow** | Schema supports multi-member households (`household_members`, only owners can invite per RLS) but there's no UI for invitations. | Workaround: Keelin signs up, gets her own household; we'd manually move her into Dylan's household via SQL. |
+| **No external recommender UI** | Can't add a non-self recommender (e.g., "saved because @julia.cooks recommended it"). Schema is there. | Sprint 2 — currently only "self" captures show up. |
+| **Variations / merge proposals** | Schema exists, no UI. | Sprint 2+. |
+| **No error tracking** | Vercel runtime logs only. No Sentry, no aggregated error visibility. | Production risk. |
+| **No analytics** | Don't know what's being saved, by whom, how often. | Acceptable for personal use; not for public product. |
+
+---
+
+## 6. Hard stops / known broken things
+
+| Issue | Notes |
+|---|---|
+| Apple SIWA login | Will fail until domain verification file is uploaded. |
+| Existing saves missing extraction | No backfill. Re-share to enrich. |
+| Map shows nothing for non-place saves | Expected — map only renders saves with `canonical_data.coords`. Empty state shown when zero. |
+| Instagram captions often missing | Instagram blocks scrapers heavily. We get OG title/image/description sometimes; captions rarely. Real fix: Apify or headless browser. |
+| `generate-apple-secret.mjs` in repo (gitignored) | Has Team ID + Key ID hardcoded. Served its purpose. Safe to delete. |
+
+---
+
+## 7. Backlog — open friction points
+
+| Item | Effort | Notes |
+|---|---|---|
+| Distribute pre-built iOS Shortcut via iCloud link | Low (manual export from Dylan's phone) | Replaces the broken manual Shortcut walkthrough on `/settings`. One-tap install for users. |
+| Validate PWA Share Target on iOS | Low (just install + test) | Most likely the primary share path going forward. |
+| Reprocess action for existing saves | Low | Endpoint that re-runs `enrichUrl()` on a save and updates fields. Useful for backfill + manual "refresh" UX. |
+| Edit save UI | Medium | Per-field editing on detail page — title, category, note, visibility. |
+| Keelin sign-up + add to Dylan's household | One-time SQL | Keelin signs up, then run `UPDATE household_members SET household_id = '<dylans>' WHERE user_id = '<keelins>'` and delete her solo household. |
+| Restrict Google Maps API key | Low (Cloud Console) | Add HTTP referrer restriction to `saves.dylandibona.com/*`. |
+| Apple SIWA domain verification | Low (download file → upload to `public/.well-known/`) | Required for Apple sign-in. |
+| Delete `generate-apple-secret.mjs` | Trivial | Already gitignored, safe to remove from disk. |
+| Recipe-specific JSON-LD parser | Medium | Many recipe sites have schema.org Recipe markup. Already passing JSON-LD to Claude; could parse explicitly for higher reliability and zero AI cost. |
+| Better Instagram extraction | High (Apify or Browserless) | Real captions, comments, full data. Costs money. Necessary for "the workout in the comments" use case. |
+| External recommender attribution UI | Medium | Choose recommender at save time; show their name + color in feed. |
+| Tags / lists / collections | Medium | Schema supports tags, no UI. |
+| Map clustering | Low | When many places, markers overlap. |
+| Inbound email pipeline (Postmark) | High | Send a link to your `capture_email` → save lands. Schema (`inbound_messages`) is there, no integration. |
+| Inbound SMS (Twilio) | High | Same pattern. |
+
+---
+
+## 8. The gap to production-public
+
+This is the question for the next planning session. Today the app works for two specific users. To open it to the general public, these need to exist:
+
+### Must-have for public launch
+
+| Area | Gap |
+|---|---|
+| **Sign-up flow** | New users today get a household + self-recommender via the `handle_new_user` trigger. The `capture_email` is set by the auth callback. **Untested with multiple non-D+K accounts.** |
+| **Onboarding** | After sign-in there's no welcome state, no "save your first thing" walkthrough, no explanation of features. New users see an empty feed. |
+| **Account settings** | Display name, email, password (for non-OAuth), profile picture. Currently no way to edit any of this. |
+| **Account deletion** | GDPR/CCPA requirement. No flow exists. |
+| **Data export** | "Download my saves" — JSON or CSV. Required by law in some jurisdictions. |
+| **Privacy policy + Terms of Service** | Static pages. Need real ones (not Lorem ipsum). |
+| **Cookie consent / GDPR banner** | Required if serving EU users. |
+| **Email verification UX** | Supabase handles the flow; needs UX testing for "what happens if user closes the email link tab". |
+| **Password reset** | Magic link covers it for that path; need to verify across all auth methods. |
+| **Rate limiting on `/api/share-save`** | Anyone with a token can hammer it. Need per-token-per-minute limits. Vercel KV or upstash. |
+| **Token revocation UI** | Settings only allows regenerate (which invalidates old). No "list of active tokens" or per-device naming. |
+| **Multi-household model** | Each user starts in their own household. Inviting another user (partner, roommate) into a household needs UI: send invite → accept → merge. |
+| **Solo-user UX** | Currently the household model assumes you're sharing. A solo user (no partner) sees DD pills next to all their saves — possibly weird. Consider hiding initials when household has 1 member. |
+| **Error tracking** | Sentry or similar. |
+| **Analytics** | Plausible (privacy-respecting) or Posthog. Need to know retention, what's being saved, where it falls down. |
+| **Status page / uptime** | Cron pinging key endpoints; status.saves.app or similar. |
+| **Marketing landing page** | The current `/` is the feed (auth-gated). A logged-out visitor sees the login page. There should be a marketing page at `/` for unauth users explaining the product. |
+| **App Store / Google Play** | Long-term: native apps. PWA is fine for v1 of public release. |
+
+### Should-have for early-public launch
+
+| Area | Gap |
+|---|---|
+| **Better empty states** | "No saves yet" — instead of "Add your first save →", more thoughtful guidance per category. |
+| **Better Instagram extraction** | The "kettlebell workout in the comment" use case fails because IG blocks comment scraping. Apify is the answer; ~$30/mo for hobby tier. |
+| **Share a single save publicly** | "Send this restaurant to a friend" via a public-readable URL. Schema gate: would need a `public_share_id` on saves. |
+| **iOS app or polished PWA** | Native PWA install on iOS works but feels like a webapp. A WrapperKit / Capacitor wrapper would smooth the edges. |
+| **Push notifications** | "Keelin saved a place near you" or weekly digest. Requires service worker + push subscription. |
+| **Search at scale** | Current search is `useMemo` on all loaded saves. Fine for hundreds; breaks at thousands. Need server-side full-text (`pg_trgm` already in extensions). |
+| **Feed pagination / virtualization** | Today loads everything. Fine until 500 saves; degrades after. |
+
+### Nice-to-have
+
+- Tags / lists / collections
+- "Trip mode" — save bundle for a specific trip (Italy 2026)
+- "Workout fullscreen" — execute a saved workout with timer/rest periods
+- Map sync — push saves to Google My Maps or similar
+- Subscription / pricing if applicable (probably free tier + paid for inbound email/SMS or higher caps)
+
+### Explicitly NOT in scope
+
+- Streaks, achievements, badges, gamification of any kind
+- Public feed of all users' saves
+- Social graph (followers, following)
+- Comments on saves
+- Anything resembling Pinterest/Instagram social
+
+---
+
+## 9. Working directory
 
 ```
 /Users/dylandibona/dylan@dylandibona.com/_Code Projects/saves
@@ -51,370 +211,273 @@ Guidance for Claude Code when working in this repository. Keep this file current
 
 ---
 
-## Development commands
+## 10. Development commands
 
 ```bash
+# Next.js
 npm run dev          # local dev (Turbopack, port 3000)
-npm run build        # production build (webpack)
+npm run build        # production build (webpack — DO NOT add --turbopack)
 npm run lint         # ESLint
-npx tsc --noEmit    # type-check — run this before declaring anything done
+npx tsc --noEmit    # type-check — must pass before pushing
+npm run icons        # regenerate PWA icons from public/icon.svg
 
-# Supabase
-supabase login       # authenticate as dylandibona account — NOT Natrx
-supabase link --project-ref <ref>
+# Supabase (CLI — optional now that we have MCP)
+supabase login
+supabase link --project-ref lqmjglpzrfcpnpshbjwo
 supabase db push --dry-run
 supabase db push
-supabase gen types typescript --linked 2>/dev/null > lib/types/supabase.ts
+supabase gen types typescript --linked > lib/types/supabase.ts
+
+# Migrations applied via Supabase MCP can be confirmed:
+#   list_migrations -- shows what's actually in the live DB
+#   apply_migration -- applies SQL directly (matches migrations folder)
 ```
 
-**After every migration:** regenerate `lib/types/supabase.ts` and commit it.
+**Type generation rule:** after every migration (file or MCP), regenerate `lib/types/supabase.ts` and commit.
 
 ---
 
-## File map
+## 11. File map
 
 ```
 app/
-  layout.tsx               — fonts (Geist, Fraunces, Space Mono, VT323, Pixelify Sans, Silkscreen),
-                             gradient orbs (5 animated jewel-tone orbs), grain overlay, Leaflet CSS import
-  globals.css              — Tailwind v4 @import, :root colors (oklch sapphire palette), orb keyframes,
-                             .chip / .chip-off physical chip system, Leaflet overrides
+  layout.tsx               — Fonts (Geist, Fraunces, Space Mono, VT323, Pixelify Sans, Silkscreen),
+                             gradient orbs (5 animated jewel-tone), grain overlay, manifest, icons,
+                             metadataBase=https://saves.dylandibona.com
+  globals.css              — Tailwind v4 @import, :root oklch sapphire palette, orb keyframes,
+                             .chip / .chip-off physical chip system
   template.tsx             — Framer Motion page transition (opacity + y, 0.22s easeOut)
-  middleware.ts            — Supabase session refresh + auth guard; redirects unauthenticated → /login
   page.tsx                 — Feed: Server Component, fetches getFeedSaves(), passes to FeedClient
   add/
-    page.tsx               — Add save page
-    add-form.tsx           — Smart URL form: debounced enrichment on paste/change/blur, controlled
-                             title/note/category, touch-aware prefill, suggested note ghost text
-    actions.ts             — addSave Server Action: deduplication by canonical_url, creates save +
-                             capture, stores coords in canonical_data.coords
-  auth/callback/route.ts   — OAuth callback: exchanges code for session, calls setUserCaptureEmail
+    page.tsx               — Add page; reads ?url= search param; calls requireUser
+    add-form.tsx           — Smart URL form, hidden enrichment inputs, visibility toggle
+    actions.ts             — addSave Server Action: dedup, capture creation, canonical_data composition
+  api/
+    share-save/route.ts    — POST endpoint for iOS Shortcut. Token auth via Authorization Bearer header.
+                             Runs enrichUrl, creates save + capture, returns success JSON.
+                             Logs to Vercel runtime as [share-save] ok/warn/crash.
+  auth/callback/route.ts   — OAuth/magic-link callback. Exchanges code for session.
+                             Sets capture_email if absent. Honors ?next= for share-target flow.
   login/
-    page.tsx               — Login page
-    login-form.tsx         — Magic link + Apple SIWA + Google OAuth buttons
+    page.tsx               — Login route
+    login-form.tsx         — Magic link + Apple + Google buttons. Threads ?next= through emailRedirectTo
+                             and OAuth redirectTo so post-login the user lands back where they came from.
   map/
-    page.tsx               — Map page: Server Component, fetches getMapSaves(), passes to MapClient
-    map-client.tsx         — Google Maps: dark sapphire style, jewel SVG markers, category filter
-                             strip, Near Me geolocation button, save card popup
+    page.tsx               — Map route; calls requireUser (via getHouseholdId redirect)
+    map-client.tsx         — Google Maps with dark sapphire style, jewel SVG markers,
+                             category filter strip, Near Me button, save card popup
   saves/[id]/
-    page.tsx               — Save detail page (basic, needs expansion)
+    page.tsx               — Save detail; renders ExtractedSection + captures timeline
+    delete-button.tsx      — Confirmation modal client component
+    actions.ts             — deleteSave: soft-archive via status='archived'
+  settings/
+    page.tsx               — Token generation, copy, Shortcut instructions (instructions need work)
+    token-section.tsx      — Token UI with copy + regenerate confirmation
+    actions.ts             — generateShareToken: calls Supabase RPC generate_share_token()
+  share/route.ts           — PWA share_target endpoint. Scans url/text/title params for an http(s)
+                             URL, redirects to /add?url=... so the form flow takes over.
 
 components/
-  animated-wordmark.tsx    — "Saves" wordmark: 5 letters independently cycle through 3 pixel fonts
-                             (Pixelify Sans, VT323, Silkscreen) on staggered timers with opacity fade
-  nav.tsx                  — Sticky glass nav: AnimatedWordmark + Add/Map/Sign Out links
+  animated-wordmark.tsx    — Letter-by-letter font morph (Pixelify Sans / VT323 / Silkscreen)
+  nav.tsx                  — Sticky glass nav: AnimatedWordmark + Add/Map/Settings/Sign Out
   feed/
-    feed-client.tsx        — Client: live search (useMemo filter), Near Me + category chips,
-                             Framer Motion staggered list, Chip component with ease-in-out (no spring)
-    save-card.tsx          — Feed row: jewel category label, Fraunces title, thumbnail, recommender dots
-    animated-feed.tsx      — (scaffolding, may be unused)
-    feed-filters.tsx       — (scaffolding, may be unused)
+    feed-client.tsx        — Live search, Near Me + filtered category chips (only with content),
+                             Framer Motion staggered list, Chip with ease-in-out (no spring, no glow)
+    save-card.tsx          — Feed row: jewel category label, Fraunces title, lock icon for private,
+                             SaverPills (DD/KL initials), thumbnail
+    animated-feed.tsx      — Probably unused scaffolding (verify + delete)
+    feed-filters.tsx       — Probably unused scaffolding (verify + delete)
+  saves/
+    extracted-section.tsx  — Per-category structured display: recipes (ingredients/instructions),
+                             workouts (exercise cards), places (hours/address/website),
+                             articles (author/summary), movies (year/runtime/director), etc.
   ui/                      — shadcn/ui primitives (badge, button, input, label, separator)
 
 lib/
   actions/
-    enrich-url.ts          — Server Action: enriches URLs via OG fetch + optional Claude classification.
-                             Paths: google_maps → coord extraction + OG; instagram/youtube/generic → OG + Claude
+    enrich-url.ts          — Server Action. Detects URL type. Resolves shortened maps URLs.
+                             Uses facebookexternalhit UA for Instagram. Sends OG + page text + JSON-LD
+                             to Claude with category-specific extraction prompt. Returns EnrichedUrl
+                             with title/subtitle/category/imageUrl/coords/extracted.
   auth/
-    set-capture-email.ts   — Sets users.capture_email after signup: {username}-{4hex}@{INBOUND_EMAIL_DOMAIN}
+    require-user.ts        — Server-side auth gate. Replaces middleware. redirect to /login?next=...
+                             if no user.
+    set-capture-email.ts   — {username}-{4hex}@{INBOUND_EMAIL_DOMAIN} setter for new users
   data/
     household.ts           — getHouseholdId(): reads household_members for current user
-    saves.ts               — getFeedSaves(householdId), getSaveById(id)
-    map-saves.ts           — getMapSaves(householdId): selects saves with canonical_data.coords
+    saves.ts               — getFeedSaves(householdId), getSaveById(id) — both pull captures→users
+                             for DD/KL identity rendering
+    map-saves.ts           — getMapSaves(householdId): saves with canonical_data.coords
   supabase/
-    client.ts              — Browser Supabase client (createBrowserClient)
-    server.ts              — Server Supabase client (createServerClient with cookies)
+    client.ts              — Browser client (createBrowserClient)
+    server.ts              — Server client (createServerClient with cookies)
   types/
-    supabase.ts            — Auto-generated from live schema — never edit manually
+    supabase.ts            — Auto-generated. Regenerate via `supabase gen types` OR Supabase MCP after every migration.
   utils/
-    time.ts                — formatRelativeTime, CATEGORY_LABELS (display names), CATEGORY_COLORS (jewel hex)
-    url-detect.ts          — detectUrlType(), extractMapsCoords(), extractMapsPlaceName()
-  utils.ts                 — shadcn cn() helper
+    time.ts                — formatRelativeTime, CATEGORY_LABELS, CATEGORY_COLORS
+    url-detect.ts          — detectUrlType, extractMapsCoords, extractMapsPlaceName, findCoordsInText
+    identity.ts            — getUserInitials (dylan→DD, keelin→KL hardcoded), getUserColor
+  utils.ts                 — shadcn cn()
+
+public/
+  icon.svg                 — Source for all icons (noun-s-block tetris-S on sapphire jewel base)
+  icon-192.png, icon-512.png, apple-touch-icon.png, favicon-32.png — generated by npm run icons
+  manifest.json            — PWA manifest with share_target → /share
+  noun-s-block-1114651.{svg,png} — Original asset Dylan dropped in (basis for icon.svg)
+
+scripts/
+  generate-icons.mjs       — sharp-based PNG generation from icon.svg
 
 supabase/migrations/
-  20260504000001_extensions.sql   — PostGIS, pg_trgm
-  20260504000002_schema.sql       — all core tables + save_category enum
-  20260504000003_pipeline.sql     — inbound_messages, merge_proposals, map_syncs
-  20260504000004_indexes.sql      — GIN/GIST/FTS/partial indexes
-  20260504000005_functions_triggers.sql — set_updated_at, update_save_capture_stats, handle_new_user,
-                                          expire_merge_proposals
-  20260504000006_rls.sql          — RLS enabled + all policies
+  20260504000001_extensions.sql        — PostGIS, pg_trgm
+  20260504000002_schema.sql            — All core tables, save_category enum
+  20260504000003_pipeline.sql          — inbound_messages, merge_proposals, map_syncs
+  20260504000004_indexes.sql           — GIN/GIST/FTS/partial indexes
+  20260504000005_functions_triggers.sql — set_updated_at, update_save_capture_stats, handle_new_user
+  20260504000006_rls.sql               — RLS enabled, all policies
+  20260510000001_save_visibility.sql   — visibility enum + created_by; RLS updated
+  20260510000002_share_token.sql       — share_token column + generate_share_token() function
+
+— gitignored, on disk only —
+huashu-design/             — HTML design skill (use for design-direction work; SKILL.md inside)
+taste-skill/               — Anti-slop frontend skill (use for layout/typography/motion polish)
+generate-apple-secret.mjs  — One-time Apple JWT generator (served its purpose; safe to delete)
+AuthKey_*.p8               — Apple SIWA private key (NEVER commit)
+.env.local                 — secrets (NEVER commit)
 ```
 
 ---
 
-## Data model
+## 12. Data model
 
 ```
 auth.users
-  └── public.users (1:1, shared id)        capture_email set by app after signup, NULL from trigger
+  └── public.users (1:1, shared id)        capture_email set by app after signup;
+        │                                  share_token nullable, generated on demand
         └── household_members (many:many)
               └── households
                     ├── saves               canonical entry, one per real-world thing
+                    │     │ • visibility    'household' | 'private' (default 'household')
+                    │     │ • created_by    user.id of the saver (RLS uses this)
+                    │     │ • canonical_data  JSONB { coords?: {lat,lng}, extracted?: ... }
                     │     ├── captures      every save event; trigger maintains capture_count
-                    │     ├── variations    alternate versions (e.g. different cuts of a recipe)
+                    │     ├── variations    alternate versions (Sprint 2 UI)
                     │     └── save_tags
-                    ├── recommenders        who put something on your radar (person, show, 'self')
+                    ├── recommenders        who put something on your radar (incl. self)
                     └── tags
 
-sources                                     global; where content lives (instagram.com, nytcooking.com)
+sources                                     global; where content lives
+inbound_messages                            (Sprint 2) email/SMS landing zone
+merge_proposals                             (Sprint 2) near-duplicate review queue
 ```
 
-### Key fields on `saves`
+### Categories
 
-| Field | Notes |
-|---|---|
-| `category` | Postgres enum — see list below |
-| `canonical_url` | Deduplicated on; unique per household |
-| `canonical_data` | Free-form JSONB; coords stored as `{ coords: { lat, lng } }` from /add form |
-| `location` | PostGIS geography(point,4326) — not yet written to by the app; reserved for future |
-| `location_address` | Human-readable address string |
-| `capture_count` | Maintained by `on_capture_insert` trigger — never update manually |
-| `last_captured_at` | Maintained by same trigger |
-| `hero_image_url` | OG image from enrichment |
+`save_category`: `recipe | tv | movie | restaurant | hotel | place | event | book | podcast | music | article | product | workout | noted`
 
-### Categories (`save_category` enum)
+### `canonical_data` JSONB shape
 
-```
-recipe | tv | movie | restaurant | hotel | place | event |
-book | podcast | music | article | product | workout | noted
-```
-
-Each has a display label in `CATEGORY_LABELS` and a jewel hex color in `CATEGORY_COLORS` (both in `lib/utils/time.ts`).
-
-### RLS pattern
-
-All household-scoped tables: `is_household_member(hid)` — a `SECURITY DEFINER STABLE` function.
-`captures`, `variations`, `save_tags` don't carry `household_id` — their RLS joins through `saves`.
-
----
-
-## Environment variables
-
-| Variable | Required | Notes |
-|---|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | yes | From Supabase dashboard → Project Settings |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public, safe to expose |
-| `SUPABASE_SERVICE_ROLE_KEY` | yes | **Server-only. Never reference in client code or expose via API routes.** |
-| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | yes for /map | Enable Maps JavaScript API in Google Cloud Console (same project as OAuth). Restrict key to domain + Maps JS API. |
-| `ANTHROPIC_API_KEY` | no | If absent, enrichment falls back to OG heuristics. Model: claude-opus-4-5. Server-side only. |
-| `INBOUND_EMAIL_DOMAIN` | yes | Domain for capture emails. Placeholder: `in.saves.app`. |
-
----
-
-## Design system
-
-### Colors
-
-Base background: `oklch(0.10 0.08 262)` — deep sapphire, never black, always jewel-toned.
-
-```css
-:root {
-  --background: oklch(0.10 0.08 262);   /* deep sapphire */
-  --foreground: oklch(0.93 0.008 80);
-  --muted:      oklch(0.18 0.06 262);
-  --border:     oklch(0.26 0.06 262);
+```ts
+{
+  coords?:    { lat: number; lng: number }   // populated for Google Maps URLs
+  extracted?: ExtractedData                   // category-specific; see lib/actions/enrich-url.ts
 }
 ```
 
-Five animated gradient orbs (fixed, z-index -10): teal-emerald, amber-gold, ruby, deep violet, sapphire. They drift + scale + opacity-pulse on independent timers (28–55s).
+### RLS pattern
+
+All household-scoped tables: `is_household_member(hid)` — `SECURITY DEFINER STABLE` SQL function.
+
+`saves` SELECT additionally checks visibility: must be household member AND (`visibility='household'` OR `created_by = auth.uid()`).
+
+`captures`, `variations`, `save_tags` inherit visibility through `saves` — their SELECT policies join through and apply the same visibility check.
+
+---
+
+## 13. Environment variables
+
+| Variable | Required | Notes |
+|---|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | yes | Public |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public |
+| `SUPABASE_SERVICE_ROLE_KEY` | yes | **Server-only.** Used by `/api/share-save` (no session cookie from Shortcut). Never expose to client. |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | yes for /map | Restrict to `saves.dylandibona.com/*` (currently unrestricted — backlog) |
+| `ANTHROPIC_API_KEY` | recommended | Without it, enrichment falls back to OG heuristics. Lazy-imported server-side. claude-opus-4-5. |
+| `INBOUND_EMAIL_DOMAIN` | yes | Currently `in.saves.app` placeholder. Sprint 2 will need real domain (Postmark inbound). |
+
+All set in Vercel for Production+Preview. Verified via dashboard.
+
+---
+
+## 14. Design system
+
+### Colors
+Base `oklch(0.10 0.08 262)` — deep sapphire, never black. Five animated gradient orbs (teal, amber, ruby, violet, sapphire) drift + scale + opacity-pulse. Grain overlay for tactile depth.
 
 ### Typography
-
-| Role | Font | Variable |
-|---|---|---|
-| Body / UI | Geist | `--font-sans` |
-| Content titles | Fraunces (variable, optical-size 144) | `--font-serif` |
-| Wordmark italic | Fraunces italic | `font-serif-display` class |
-| Labels / meta / monospace | Space Mono | `--font-mono` |
-| Wordmark pixel A | Pixelify Sans | `--font-pixel-b` |
-| Wordmark pixel B | VT323 | `--font-pixel-a` |
-| Wordmark pixel C | Silkscreen | `--font-pixel-c` |
+| Role | Font |
+|---|---|
+| Body / UI | Geist |
+| Content titles | Fraunces (variable, optical-size 144) |
+| Wordmark italic display | Fraunces italic |
+| Labels / meta | Space Mono |
+| Wordmark animation A | Pixelify Sans |
+| Wordmark animation B | VT323 |
+| Wordmark animation C | Silkscreen |
 
 ### Chips (`.chip` / `.chip-off`)
-
-Physical, dimensional — like semi-gloss plastic buttons. Rules:
-- **Inactive:** neutral dark plastic, white/15 border, bottom-edge shadow, top gloss highlight
-- **Active:** full saturated jewel color (`${color}f0` → `${color}cc` gradient), dark text (`oklch(0.10 0.09 262)`), depth shadows only — **no glow, no color box-shadow spread**
-- **Hover:** `scale(1.025)`, slightly brighter border — **no spring physics, no y-axis bounce**
-- **Tap:** `scale(0.97)` — ease-in-out only
-- Transitions: `0.16s ease-in-out` or CSS `transition: ... 0.18s ease-in-out`
+Physical, dimensional. **No spring physics, no color glow, ease-in-out only.**
+- Inactive: neutral dark plastic, depth shadow + gloss highlight, hover scale 1.025
+- Active: full saturated jewel color, dark text (`oklch(0.10 0.09 262)`), depth shadows, no glow
+- Tap: scale 0.97
 
 ### Iconography
-
-No basic emoji anywhere in UI. Use SVG icons or typographic Unicode markers (◈ ◎ ◉ ○). Detected badges in the add form use `◈ ◎ ◉ ○` prefixes.
+**No emojis.** Inline SVG or typographic Unicode (◈ ◎ ◉ ○).
 
 ### Animated wordmark
-
-`components/animated-wordmark.tsx` — each letter of "Saves" independently fades between Pixelify Sans, VT323, and Silkscreen on staggered timers (2.8–4.6s intervals, ~130ms crossfade). Layout-stable: fixed container height (34px), per-letter `minWidth`.
-
----
-
-## URL enrichment pipeline (live, Sprint 1)
-
-`lib/actions/enrich-url.ts` is a Server Action called from the `/add` form on URL paste/change/blur (300ms debounce). Non-blocking — uses `useTransition`.
-
-**Decision tree:**
-```
-URL pasted
-  → detectUrlType()
-      ├── google_maps → extractMapsCoords() + extractMapsPlaceName() + fetchOgData()
-      │                 → category heuristic (restaurant/hotel/place keywords)
-      │                 → source: 'google_maps', confidence: 'high'
-      ├── instagram   → fetchOgData() → classifyWithClaude() (if ANTHROPIC_API_KEY set)
-      │                 → source: 'ai' or 'og'
-      ├── youtube     → fetchOgData() → category: 'noted' (let user override)
-      └── generic     → fetchOgData() → classifyWithClaude() (if key set)
-                        → source: 'ai' or 'og'
-```
-
-**Prefill behavior (touch-aware):**
-- Title: prefilled unless `titleTouched.current`
-- Category: pre-selected if confidence is 'high' or 'medium'
-- Note: shown as ghost placeholder text (`suggestedNote`) unless `noteTouched.current`
-- Coords: stored in hidden `<input name="coords">` field, written to `canonical_data.coords` in the Server Action
+`components/animated-wordmark.tsx` — each letter independently fades between 3 pixel fonts on staggered timers (2.8–4.6s, 130ms cross-fade). Layout-stable.
 
 ---
 
-## Auth
-
-- Magic link, Apple SIWA, Google OAuth — all configured in Supabase dashboard
-- Apple SIWA requires a pre-generated JWT client secret (see `generate-apple-secret.mjs`, a one-time utility)
-- OAuth callback at `/auth/callback/route.ts` — exchanges code → session, then calls `setUserCaptureEmail`
-- Middleware (`middleware.ts`) refreshes session on every request and guards all non-auth routes
-- `getUser()` is used (not `getSession()`) per Supabase SSR docs
-
----
-
-## Map
-
-- **Provider:** Google Maps JS API via `@react-google-maps/api`
-- **Tile style:** Custom deep-sapphire dark style array in `map-client.tsx` — matches `oklch(0.10 0.08 262)` palette
-- **Markers:** Custom SVG spheres with radial gradient fill in category jewel colors, passed as data URLs
-- **Data source:** `getMapSaves()` queries `saves` where `canonical_data` is not null, then filters JS-side for rows with `canonical_data.coords`
-- **Note:** `saves.location` (PostGIS geography column) is NOT yet written to; coordinates live in `canonical_data.coords` only
-- **Near Me:** calls `navigator.geolocation`, flies map to user location, adds a teal marker
-- **Category filter:** shows only categories that have at least one save with coords
-- **Leaflet:** package is still installed but unused — can be removed
-
----
-
-## Known issues and TODOs
-
-### Bugs / gaps
-
-| Issue | File | Notes |
-|---|---|---|
-| `saves.location` never written | `app/add/actions.ts` | Coords go to `canonical_data.coords` only; PostGIS `location` field stays null. Should backfill and write both. |
-| Leaflet CSS globally imported | `app/layout.tsx` | `leaflet/dist/leaflet.css` imported even though Leaflet is no longer used. Remove after confirming Google Maps works. |
-| `leaflet` + `react-leaflet` in deps | `package.json` | Can be removed now that Google Maps is the map provider. |
-| `animated-feed.tsx` + `feed-filters.tsx` | `components/feed/` | Scaffolding components, likely unused. Verify and delete. |
-| `saves/[id]/page.tsx` is bare | `app/saves/[id]/` | Save detail page needs a real design: hero image, category chip, notes, captures timeline, open-in-maps button. |
-| YouTube category defaults to 'noted' | `enrich-url.ts` | Intentionally weak — but Claude could classify youtube.com/watch URLs better by channel/title. |
-| Google Maps shortened URLs (`maps.app.goo.gl`) | `url-detect.ts` | `extractMapsCoords()` returns null for shortened URLs — they require a follow/redirect to get the full URL with coordinates. |
-| No loading state on /map without API key | `map-client.tsx` | Shows a plain error message. Could be more graceful. |
-
-### Backlog — open friction points
-
-| Issue | Notes |
-|---|---|
-| **iOS Shortcut setup is too hard** | The current `/settings` page walks the user through configuring "Get Contents of URL" with method, headers, and JSON body — but Apple's Shortcuts UI varies by iOS version and the instructions don't match what users see. Real fix: distribute a pre-built `.shortcut` file via iCloud share link (one-tap install), or build a public "Add to Shortcuts" landing page. The token still needs to be pasted in once. Until that's done, **the PWA Share Target is the working alternative** (no Shortcut config required) — see Sprint 2. |
-
-### Sprint 2 priorities (not built yet)
-
-| Feature | Complexity | Notes |
-|---|---|---|
-| **PWA Share Target** | Low | `manifest.json` + `share_target` + `POST /share` route handler. Lets "Saves" appear in iOS/Android share sheet from Instagram. Most impactful mobile feature. |
-| **iOS Shortcut** | Trivial | Share sheet shortcut: input URL → open `https://saves.app/add?url=[input]`. Works today with no infrastructure. |
-| **Email ingest (Postmark)** | Medium | Inbound email → `inbound_messages` → pipeline. `capture_email` is already generated at signup. |
-| **SMS ingest (Twilio)** | Medium | Similar to email pipeline. |
-| **Write PostGIS `location`** | Low | When coords are available from enrichment, write `ST_Point(lng, lat, 4326)` to `saves.location`. Enables future PostGIS proximity queries for Near Me. |
-| **Near Me geolocation filter** | Medium | Current "Near Me" chip shows all saves. Real implementation: `ST_DWithin(location, ST_Point(userLng, userLat, 4326), radiusMeters)` in Supabase query. Requires `saves.location` to be populated. |
-| **Save detail page** | Medium | Full design for `/saves/[id]`: hero, category, captures timeline, note, open-in-maps / open-link buttons, delete. |
-| **Merge proposal UI** | Medium | Schema exists (`merge_proposals`), no UI. When two saves are near-duplicates, show a card for review. |
-| **Household invite** | Medium | Schema supports multi-member households. Need invite flow UI. |
-| **Deduplication pipeline** | High | Full classifier + match step. Currently only exact `canonical_url` match in manual add. |
-| **Instagram enrichment improvement** | Low | Claude gets no image from Instagram OG (they block scrapers). Consider Apify or a headless browser approach. |
-| **maps.app.goo.gl coord resolution** | Low | Follow the redirect server-side to get the full URL, then extract coords. |
-
-### Design / UX debt
-
-| Issue | Notes |
-|---|---|
-| Save detail page is placeholder | Needs real design treatment |
-| No empty state for feed first-time users | Should prompt to add first save with more warmth |
-| No error feedback on /add form failures | Server Action throws but no client error display |
-| No optimistic updates on save | Form submits, redirects — no skeleton/loading |
-| Search only covers title + subtitle | Could search note, location_address, category label |
-| Chip color contrast | Dark text on jewel chips — check WCAG at all category colors, especially yellow (#ffe566) |
-
----
-
-## Coding conventions
-
-### Server vs Client
+## 15. Coding conventions
 
 - **Server Components by default.** `'use client'` only for state, interactivity, browser APIs.
-- **All Anthropic API calls** must be in Server Actions or Route Handlers. Never client components.
-- **Never expose `SUPABASE_SERVICE_ROLE_KEY`** or `ANTHROPIC_API_KEY` to client bundles.
-- **Data fetching:** Server Components with direct Supabase calls for reads. Server Actions for mutations.
+- **All Anthropic API calls** in server code. Never bundle the SDK to the client.
+- **Never expose `SUPABASE_SERVICE_ROLE_KEY` or `ANTHROPIC_API_KEY`** to client bundles.
 - **Async params:** `params` and `searchParams` in Next.js 15 are Promises — always `await` them.
-
-### Supabase
-
-- Use `createClient()` from `@/lib/supabase/server` in Server Components and Actions.
-- Use `createClient()` from `@/lib/supabase/client` in Client Components.
-- Never bypass `capture_count` / `last_captured_at` — maintained by trigger on `captures` insert.
-- Never edit applied migrations — always write new `.sql` files.
-
-### TypeScript
-
-- Run `npx tsc --noEmit` before declaring any task done. Zero errors required.
-- `lib/types/supabase.ts` is auto-generated — never hand-edit it.
-- Import DB types as `type Database = Database['public']['Tables']['saves']['Row']` etc.
-
-### Animations
-
-- **No spring physics on chips.** Use `{ duration: 0.16, ease: 'easeInOut' }`.
-- **No bounce (y-axis movement) on hover.** Scale only: `whileHover={{ scale: 1.025 }}`.
-- **No color glow in box-shadow.** Physical depth only: bottom-edge + drop shadow + inset gloss.
-- Page transitions via `app/template.tsx` — already configured.
-
-### Styling
-
-- Tailwind v4 syntax: `@import "tailwindcss"` not `@tailwind base/components/utilities`.
-- Never write `oklch()` colors with a `/` opacity inline in Tailwind classes — use `style={}` or CSS variables.
-- Category colors only appear on active/selected states — inactive chips are always neutral dark.
+- **Type check before pushing:** `npx tsc --noEmit`. ESLint enforces `prefer-const` etc. as build errors via `next build`.
+- **Migrations:** never edit applied migrations. Always write new files. Apply via Supabase MCP `apply_migration` OR `supabase db push`. Regenerate types after.
+- **Animations:** `{ duration: 0.16, ease: 'easeInOut' }` pattern. No `type: 'spring'` on chips. No y-axis bounce on hover.
+- **CSS:** Tailwind v4 `@import "tailwindcss"`. No v3 plugin syntax.
 
 ---
 
-## Instagram sharing — research summary
+## 16. Available local design skills (gitignored)
 
-**The private-account DM approach is not viable.** Instagram's Graph API explicitly blocks DM read access for third-party apps. Meta requires a special Business Partnership that is not available to personal apps.
+Use these whenever Dylan asks for design evolution, hi-fi prototyping, expert design review, or anti-slop UI improvements. Don't use them for routine implementation; they're for design-direction work.
 
-**Recommended approach:**
+- **`huashu-design/`** — HTML hi-fi prototyping, design philosophy advisor (Pentagram / Field.io / Kenya Hara / Sagmeister-style), expert 5-dimensional review, 24 prebuilt showcases, anti-AI-slop checklist, Playwright validation, animation export to MP4/GIF. Read `huashu-design/SKILL.md` first.
+- **`taste-skill/`** — Anti-slop frontend skills for AI agents. Layout/typography/motion/spacing upgrades. Includes image-generation skills for reference boards. Read `taste-skill/README.md` first.
 
-1. **PWA Share Target** *(Sprint 2, ~1 day)* — Add `share_target` to `manifest.json`, create `POST /share` route that reads the shared URL and redirects to `/add?url=...`. Saves appears in iOS (Safari 16.4+) and Android share sheets natively. Zero friction.
-
-2. **iOS Shortcut** *(works today, zero infrastructure)* — One Shortcut per user: "Get clipboard/share input → open `https://saves.app/add?url=[input]`". Install once, appears in every share sheet.
-
-3. **Email to save** *(Sprint 2, Postmark)* — Each user has a personal `capture_email`. Forward any link there. Infrastructure already scaffolded (`inbound_messages` table, `capture_email` column).
-
-The shortcut is the fastest path to saving from Instagram today. PWA Share Target makes it fully native and is the right Sprint 2 investment.
+When to reach: "the design needs to evolve", "let's rethink X", "build a hi-fi prototype", "review this", "design exploration", "make it feel more considered". For "fix this CSS" or "build this component", just do the work directly.
 
 ---
 
-## Supabase account note
+## 17. Supabase notes
 
-Always use the **dylandibona** Supabase account, not Natrx. Confirm before `supabase login` or `supabase link`.
+- Always use the **dylandibona** Supabase account, not Natrx. Confirm before `supabase login` or any DB action.
+- Project ref: `lqmjglpzrfcpnpshbjwo`.
+- Migrations applied directly via the Supabase MCP `apply_migration` tool (current Claude session has access). Source files mirrored in `supabase/migrations/`.
 
 ---
 
-## Available design skills (local, gitignored)
+## 18. Open big questions for next planning session
 
-Two design skills live in this directory but are excluded from the repo. **Use them whenever Dylan asks for design evolution, hi-fi prototyping, design exploration, expert review, or anti-slop frontend improvements.** Don't use them for routine implementation — they're for design-direction work.
+1. **Public vs personal — when?** Today the app works for D + K. Going public requires the work in Section 8. Is the next sprint about polishing private use OR about building the public-readiness layer?
+2. **Monetization model.** Free? Paid? Freemium with inbound email/SMS gated? "Per household" pricing? Affects feature priorities heavily.
+3. **iOS app or polished PWA?** PWA is fast; native iOS adds App Store discoverability + push + better share-sheet integration. ~2-3 months of additional scope.
+4. **Instagram extraction strategy.** Apify (~$30/mo, real captions/comments) vs scraping (fragile, free but breaks). The "kettlebell workout in the comment" use case is unsolved without one of these.
+5. **Recommender system.** "Who recommended this" is a major pillar of the UX vision but only `self` recommenders exist today. Expanding this is a meaningful design + data + UI lift.
+6. **Inbound channels timeline.** Email (Postmark) and SMS (Twilio) capture were Sprint 2 plans. Both involve external service costs and onboarding flows.
 
-- **`huashu-design/`** — HTML-based hi-fi prototyping, design philosophy advisor, expert 5-dimensional review. Includes 24 prebuilt showcases (8 scenarios × 3 styles), 5 schools × 20 philosophies (Pentagram / Field.io / Kenya Hara / Sagmeister / etc.), anti-AI-slop checklist, iOS/mobile prototyping conventions, Playwright validation, animation → MP4/GIF export. Read `huashu-design/SKILL.md` first when invoking.
-- **`taste-skill/`** — Portable Agent Skills that upgrade AI-built UIs: stronger layout, typography, motion, spacing instead of boilerplate. Includes image-generation skills for reference boards. Read `taste-skill/README.md` and the `skills/` subfolder when invoking.
-
-**When to reach for these:** Dylan asks for "the design needs to evolve", "let's rethink X", "build a hi-fi prototype", "review this design", "design exploration", "make it feel more considered", or anything similar where the *direction* matters more than the *implementation*. For routine "fix this CSS" or "build this component" tasks, just do the work directly.
+These are the conversations to have before the next coding session.
