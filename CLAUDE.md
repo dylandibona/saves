@@ -314,6 +314,12 @@ URL pasted
 | Google Maps shortened URLs (`maps.app.goo.gl`) | `url-detect.ts` | `extractMapsCoords()` returns null for shortened URLs — they require a follow/redirect to get the full URL with coordinates. |
 | No loading state on /map without API key | `map-client.tsx` | Shows a plain error message. Could be more graceful. |
 
+### Backlog — open friction points
+
+| Issue | Notes |
+|---|---|
+| **iOS Shortcut setup is too hard** | The current `/settings` page walks the user through configuring "Get Contents of URL" with method, headers, and JSON body — but Apple's Shortcuts UI varies by iOS version and the instructions don't match what users see. Real fix: distribute a pre-built `.shortcut` file via iCloud share link (one-tap install), or build a public "Add to Shortcuts" landing page. The token still needs to be pasted in once. Until that's done, **the PWA Share Target is the working alternative** (no Shortcut config required) — see Sprint 2. |
+
 ### Sprint 2 priorities (not built yet)
 
 | Feature | Complexity | Notes |
