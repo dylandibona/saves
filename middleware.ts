@@ -41,6 +41,13 @@ export async function middleware(request: NextRequest) {
   if (!user && !isAuthRoute && !isPwaAsset) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
+    // Preserve where they came from so we can send them back after login.
+    // Critical for /share — if user hits Instagram → share → Saves while
+    // logged out, they'd lose the URL without this.
+    const next = request.nextUrl.pathname + request.nextUrl.search
+    if (next !== '/' && next !== '/login') {
+      url.searchParams.set('next', next)
+    }
     return NextResponse.redirect(url)
   }
 

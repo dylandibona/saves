@@ -10,12 +10,21 @@ import { Separator } from '@/components/ui/separator'
 export function LoginForm({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; message?: string }>
+  searchParams: Promise<{ error?: string; message?: string; next?: string }>
 }) {
   const params = use(searchParams)
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
+
+  // Build the auth callback URL with `next` preserved so the user lands
+  // back where they came from (e.g. /share/... or /add?url=...).
+  const callbackUrl = (() => {
+    if (typeof window === 'undefined') return '/auth/callback'
+    const u = new URL('/auth/callback', window.location.origin)
+    if (params.next) u.searchParams.set('next', params.next)
+    return u.toString()
+  })()
 
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault()
@@ -23,7 +32,7 @@ export function LoginForm({
     const supabase = createClient()
     await supabase.auth.signInWithOtp({
       email,
-      options: { emailRedirectTo: `${location.origin}/auth/callback` },
+      options: { emailRedirectTo: callbackUrl },
     })
     setSent(true)
     setLoading(false)
@@ -33,7 +42,7 @@ export function LoginForm({
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl },
     })
   }
 
@@ -41,7 +50,7 @@ export function LoginForm({
     const supabase = createClient()
     await supabase.auth.signInWithOAuth({
       provider: 'apple',
-      options: { redirectTo: `${location.origin}/auth/callback` },
+      options: { redirectTo: callbackUrl },
     })
   }
 
