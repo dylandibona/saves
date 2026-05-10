@@ -619,6 +619,8 @@ export type Database = {
           id: string
           phone: string | null
           settings: Json
+          share_token: string | null
+          share_token_created_at: string | null
           timezone: string | null
           updated_at: string
         }
@@ -635,6 +637,8 @@ export type Database = {
           id: string
           phone?: string | null
           settings?: Json
+          share_token?: string | null
+          share_token_created_at?: string | null
           timezone?: string | null
           updated_at?: string
         }
@@ -651,6 +655,8 @@ export type Database = {
           id?: string
           phone?: string | null
           settings?: Json
+          share_token?: string | null
+          share_token_created_at?: string | null
           timezone?: string | null
           updated_at?: string
         }
@@ -911,6 +917,7 @@ export type Database = {
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       expire_merge_proposals: { Args: never; Returns: undefined }
+      generate_share_token: { Args: never; Returns: string }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
         Args: { geom1: unknown; geom2: unknown }
