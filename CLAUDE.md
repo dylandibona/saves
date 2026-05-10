@@ -8,6 +8,11 @@ Guidance for Claude Code when working in this repository. Keep this file current
 
 **Saves** is a personal recommendation library for Dylan and Keelin (a couple). They share restaurants, recipes, workouts, TV shows, movies, and places via Instagram DMs — those recommendations get buried and lost. Saves captures, classifies, and surfaces them in a calm, searchable library.
 
+**Reference point:** [Recime](https://www.recime.app/), but for *every* category — not just recipes. Recime proves the "share-from-anywhere → AI-extracts-structure → beautiful library" format works for one domain (recipes); Saves widens the thesis to all of them. Same care, any save type. Implications:
+- Per-category richness via the `canonical_data` JSONB column (recipes → ingredients/steps; places → hours/photos; movies → runtime/director). Schema is already shaped for this.
+- The whole product is **frictionless capture** + **calm library**. The background `/api/share-save` endpoint and iOS Shortcut are the equivalent of Recime's "share from Instagram, structured" magic.
+- Visual richness — hero images, jewel-tone category, real metadata. Not a list of bare links.
+
 **Design principle:** a beautifully kept notebook, not a feed. No streaks, no engagement nudges, no gamification. The app should feel like a physical object — jewel-toned, dimensional, tactile. 80% mobile usage.
 
 **Users:** Dylan (`dylan@dylandibona.com`) + Keelin. They share a single household in the data model. Every save belongs to the household, not an individual user.
