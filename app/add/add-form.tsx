@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback, useTransition } from 'react'
+import { useRef, useState, useCallback, useTransition, useEffect } from 'react'
 import { addSave } from './actions'
 import { enrichUrl, type EnrichedUrl } from '@/lib/actions/enrich-url'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/utils/time'
@@ -24,7 +24,7 @@ function detectedBadge(enriched: EnrichedUrl): string {
   return `○ ${catPart}Detected`
 }
 
-export function AddForm() {
+export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
   const formRef = useRef<HTMLFormElement>(null)
 
   // Enrichment state
@@ -37,6 +37,7 @@ export function AddForm() {
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Controlled inputs so we can pre-fill them
+  const [url, setUrl] = useState(initialUrl)
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<SaveCategory>(categories[0])
@@ -74,12 +75,22 @@ export function AddForm() {
   }, [])
 
   const handleUrlChange = useCallback(
-    (url: string) => {
+    (next: string) => {
+      setUrl(next)
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      debounceTimer.current = setTimeout(() => runEnrichment(url), 300)
+      debounceTimer.current = setTimeout(() => runEnrichment(next), 300)
     },
     [runEnrichment]
   )
+
+  // If we land on this page with ?url=... (from PWA share target), enrich immediately
+  useEffect(() => {
+    if (initialUrl && initialUrl.startsWith('http')) {
+      runEnrichment(initialUrl)
+    }
+    // Only on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <form ref={formRef} action={addSave} className="space-y-10">
@@ -95,6 +106,7 @@ export function AddForm() {
           type="url"
           placeholder="https://"
           autoFocus
+          value={url}
           className={field}
           onBlur={(e) => runEnrichment(e.target.value)}
           onPaste={(e) => {

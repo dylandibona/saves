@@ -4,7 +4,14 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Add' }
 
-export default function AddPage() {
+export default async function AddPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ url?: string }>
+}) {
+  const params = await searchParams
+  const initialUrl = params.url ?? ''
+
   return (
     <>
       <Nav />
@@ -17,7 +24,7 @@ export default function AddPage() {
             A place, a recipe, something to watch, a note to yourself.
           </p>
         </div>
-        <AddForm />
+        <AddForm initialUrl={initialUrl} />
       </main>
     </>
   )

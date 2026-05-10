@@ -396,3 +396,14 @@ The shortcut is the fastest path to saving from Instagram today. PWA Share Targe
 ## Supabase account note
 
 Always use the **dylandibona** Supabase account, not Natrx. Confirm before `supabase login` or `supabase link`.
+
+---
+
+## Available design skills (local, gitignored)
+
+Two design skills live in this directory but are excluded from the repo. **Use them whenever Dylan asks for design evolution, hi-fi prototyping, design exploration, expert review, or anti-slop frontend improvements.** Don't use them for routine implementation — they're for design-direction work.
+
+- **`huashu-design/`** — HTML-based hi-fi prototyping, design philosophy advisor, expert 5-dimensional review. Includes 24 prebuilt showcases (8 scenarios × 3 styles), 5 schools × 20 philosophies (Pentagram / Field.io / Kenya Hara / Sagmeister / etc.), anti-AI-slop checklist, iOS/mobile prototyping conventions, Playwright validation, animation → MP4/GIF export. Read `huashu-design/SKILL.md` first when invoking.
+- **`taste-skill/`** — Portable Agent Skills that upgrade AI-built UIs: stronger layout, typography, motion, spacing instead of boilerplate. Includes image-generation skills for reference boards. Read `taste-skill/README.md` and the `skills/` subfolder when invoking.
+
+**When to reach for these:** Dylan asks for "the design needs to evolve", "let's rethink X", "build a hi-fi prototype", "review this design", "design exploration", "make it feel more considered", or anything similar where the *direction* matters more than the *implementation*. For routine "fix this CSS" or "build this component" tasks, just do the work directly.

@@ -26,10 +26,19 @@ export async function middleware(request: NextRequest) {
   // Refresh session — must call getUser() not getSession() per Supabase SSR docs
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith('/login') ||
-                      request.nextUrl.pathname.startsWith('/auth')
+  const path = request.nextUrl.pathname
+  const isAuthRoute = path.startsWith('/login') || path.startsWith('/auth')
 
-  if (!user && !isAuthRoute) {
+  // PWA assets — must be readable without auth so browsers can register
+  // the manifest and the OS share sheet can find the icons.
+  const isPwaAsset =
+    path === '/manifest.json' ||
+    path === '/manifest.webmanifest' ||
+    path.startsWith('/icon-') ||
+    path === '/icon.svg' ||
+    path === '/apple-touch-icon.png'
+
+  if (!user && !isAuthRoute && !isPwaAsset) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)

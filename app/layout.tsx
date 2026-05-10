@@ -45,6 +45,16 @@ const silkscreen = Silkscreen({
 export const metadata: Metadata = {
   title: { default: "Saves", template: "%s · Saves" },
   description: "Your personal recommendation library.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    title: "Saves",
+    statusBarStyle: "black-translucent",
+  },
+};
+
+export const viewport = {
+  themeColor: "#0a0f1c",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
