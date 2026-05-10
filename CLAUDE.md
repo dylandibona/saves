@@ -27,7 +27,7 @@ Guidance for Claude Code when working in this repository. Keep this file current
 | Auth | Supabase Auth | Magic link + Apple SIWA + Google OAuth |
 | Map | Google Maps JS API via `@react-google-maps/api` | Custom dark style; needs `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` |
 | AI | Anthropic claude-opus-4-5 | Server-side only, lazy import; graceful fallback if no key |
-| Hosting | Vercel | Not yet deployed |
+| Hosting | Vercel | Production: `https://saves.dylandibona.com` (Cloudflare DNS) |
 
 **Key packages:**
 - `@supabase/ssr` — SSR-safe Supabase client
