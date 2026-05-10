@@ -69,6 +69,17 @@ export function SaveCard({ save }: { save: SaveWithRecommenders }) {
 
         {/* Title */}
         <p className="font-serif text-[17px] leading-snug text-white/90 line-clamp-2">
+          {save.visibility === 'private' && (
+            <svg
+              width="11" height="11" viewBox="0 0 24 24" fill="none"
+              stroke="rgba(255,255,255,0.32)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+              className="inline-block mr-1.5 align-baseline relative -top-px"
+              aria-label="Private save"
+            >
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          )}
           {save.title}
         </p>
 

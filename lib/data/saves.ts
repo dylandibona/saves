@@ -9,7 +9,7 @@ export async function getFeedSaves(householdId: string) {
     .from('saves')
     .select(`
       id, title, subtitle, category, hero_image_url,
-      capture_count, last_captured_at, status,
+      capture_count, last_captured_at, status, visibility, created_by,
       captures(
         user_id,
         users(id, email, display_name, capture_color),

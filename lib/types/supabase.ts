@@ -12,31 +12,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   public: {
     Tables: {
       captures: {
@@ -451,6 +426,7 @@ export type Database = {
           capture_count: number
           category: Database["public"]["Enums"]["save_category"]
           created_at: string
+          created_by: string | null
           description: string | null
           external_ids: Json
           hero_image_url: string | null
@@ -464,6 +440,7 @@ export type Database = {
           subtitle: string | null
           title: string
           updated_at: string
+          visibility: Database["public"]["Enums"]["save_visibility"]
         }
         Insert: {
           canonical_data?: Json
@@ -471,6 +448,7 @@ export type Database = {
           capture_count?: number
           category: Database["public"]["Enums"]["save_category"]
           created_at?: string
+          created_by?: string | null
           description?: string | null
           external_ids?: Json
           hero_image_url?: string | null
@@ -484,6 +462,7 @@ export type Database = {
           subtitle?: string | null
           title: string
           updated_at?: string
+          visibility?: Database["public"]["Enums"]["save_visibility"]
         }
         Update: {
           canonical_data?: Json
@@ -491,6 +470,7 @@ export type Database = {
           capture_count?: number
           category?: Database["public"]["Enums"]["save_category"]
           created_at?: string
+          created_by?: string | null
           description?: string | null
           external_ids?: Json
           hero_image_url?: string | null
@@ -504,8 +484,16 @@ export type Database = {
           subtitle?: string | null
           title?: string
           updated_at?: string
+          visibility?: Database["public"]["Enums"]["save_visibility"]
         }
         Relationships: [
+          {
+            foreignKeyName: "saves_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "saves_household_id_fkey"
             columns: ["household_id"]
@@ -1675,6 +1663,7 @@ export type Database = {
         | "product"
         | "workout"
         | "noted"
+      save_visibility: "household" | "private"
     }
     CompositeTypes: {
       geometry_dump: {
@@ -1808,9 +1797,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       save_category: [
@@ -1829,6 +1815,8 @@ export const Constants = {
         "workout",
         "noted",
       ],
+      save_visibility: ["household", "private"],
     },
   },
 } as const
+

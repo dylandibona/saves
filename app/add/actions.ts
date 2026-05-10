@@ -6,6 +6,7 @@ import { getHouseholdId } from '@/lib/data/household'
 import type { Database } from '@/lib/types/supabase'
 
 type SaveCategory = Database['public']['Enums']['save_category']
+type SaveVisibility = Database['public']['Enums']['save_visibility']
 
 export async function addSave(formData: FormData) {
   const supabase = await createClient()
@@ -19,6 +20,11 @@ export async function addSave(formData: FormData) {
   const category = formData.get('category') as SaveCategory
   const title = (formData.get('title') as string).trim()
   const note = (formData.get('note') as string | null)?.trim() || null
+
+  // Visibility — radio button defaults to 'household' if missing
+  const visibilityRaw = (formData.get('visibility') as string | null) ?? 'household'
+  const visibility: SaveVisibility =
+    visibilityRaw === 'private' ? 'private' : 'household'
 
   // Rich enrichment fields (forwarded from add-form via hidden inputs)
   const subtitle = (formData.get('subtitle') as string | null)?.trim() || null
@@ -77,6 +83,8 @@ export async function addSave(formData: FormData) {
       canonical_url: url,
       hero_image_url: heroImageUrl,
       location_address: locationAddress,
+      visibility,
+      created_by: user.id,
       ...(coords ? { canonical_data: { coords } } : {}),
     })
     .select('id')
