@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getHouseholdId } from '@/lib/data/household'
-import type { Database } from '@/lib/types/supabase'
+import type { Database, Json } from '@/lib/types/supabase'
 
 type SaveCategory = Database['public']['Enums']['save_category']
 type SaveVisibility = Database['public']['Enums']['save_visibility']
@@ -40,6 +40,24 @@ export async function addSave(formData: FormData) {
       return null
     } catch { return null }
   })()
+
+  // Per-category structured data extracted by enrichment (ingredients,
+  // exercises, hours, summary, etc). Stored in canonical_data.extracted.
+  const extractedRaw = (formData.get('extracted') as string | null)?.trim() || null
+  const extracted = (() => {
+    if (!extractedRaw) return null
+    try {
+      const parsed = JSON.parse(extractedRaw)
+      return parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0
+        ? parsed
+        : null
+    } catch { return null }
+  })()
+
+  // Compose canonical_data
+  const canonicalData: Record<string, Json> = {}
+  if (coords) canonicalData.coords = coords as unknown as Json
+  if (extracted) canonicalData.extracted = extracted as unknown as Json
 
   // Get the user's self recommender
   const { data: selfRecommender } = await supabase
@@ -85,7 +103,7 @@ export async function addSave(formData: FormData) {
       location_address: locationAddress,
       visibility,
       created_by: user.id,
-      ...(coords ? { canonical_data: { coords } } : {}),
+      ...(Object.keys(canonicalData).length > 0 ? { canonical_data: canonicalData } : {}),
     })
     .select('id')
     .single()

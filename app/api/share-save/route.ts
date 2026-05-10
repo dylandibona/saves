@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
-import type { Database } from '@/lib/types/supabase'
+import type { Database, Json } from '@/lib/types/supabase'
 import { enrichUrl } from '@/lib/actions/enrich-url'
 
 type SaveCategory = Database['public']['Enums']['save_category']
@@ -23,11 +23,15 @@ type SaveCategory = Database['public']['Enums']['save_category']
  * cookie. The token in the Authorization header IS the auth.
  */
 export async function POST(request: NextRequest) {
+  const startedAt = Date.now()
+  let logUrl: string | null = null
+
   try {
     // 1. Extract token
     const authHeader = request.headers.get('authorization') ?? ''
     const token = authHeader.replace(/^Bearer\s+/i, '').trim()
     if (!token) {
+      console.warn('[share-save] missing token')
       return NextResponse.json({ ok: false, error: 'missing token' }, { status: 401 })
     }
 
@@ -46,8 +50,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (!url || !url.startsWith('http')) {
+      console.warn('[share-save] invalid url', { url: url?.slice(0, 80) })
       return NextResponse.json({ ok: false, error: 'invalid url' }, { status: 400 })
     }
+    logUrl = url
 
     // 3. Service-role client (no user session — token IS the auth)
     const supabase = createServiceClient<Database>(
@@ -102,6 +108,13 @@ export async function POST(request: NextRequest) {
       .eq('status', 'active')
       .maybeSingle()
 
+    // Compose canonical_data — coords + per-category structured fields
+    const canonicalData: Record<string, Json> = {}
+    if (enriched.coords) canonicalData.coords = enriched.coords as unknown as Json
+    if (enriched.extracted && Object.keys(enriched.extracted).length > 0) {
+      canonicalData.extracted = enriched.extracted as unknown as Json
+    }
+
     let saveId: string
     if (existing) {
       saveId = existing.id
@@ -118,7 +131,7 @@ export async function POST(request: NextRequest) {
           location_address: enriched.subtitle,
           visibility: 'household',
           created_by: userId,
-          ...(enriched.coords ? { canonical_data: { coords: enriched.coords } } : {}),
+          ...(Object.keys(canonicalData).length > 0 ? { canonical_data: canonicalData } : {}),
         })
         .select('id')
         .single()
@@ -139,6 +152,15 @@ export async function POST(request: NextRequest) {
       captured_at: new Date().toISOString(),
     })
 
+    console.log('[share-save] ok', {
+      url: logUrl?.slice(0, 80),
+      saveId,
+      category,
+      hadDuplicate: Boolean(existing),
+      hasExtracted: Boolean(enriched.extracted && Object.keys(enriched.extracted).length > 0),
+      ms: Date.now() - startedAt,
+    })
+
     return NextResponse.json({
       ok: true,
       saveId,
@@ -147,6 +169,12 @@ export async function POST(request: NextRequest) {
       hadDuplicate: Boolean(existing),
     })
   } catch (err) {
+    console.error('[share-save] crash', {
+      url: logUrl?.slice(0, 80),
+      message: err instanceof Error ? err.message : String(err),
+      stack: err instanceof Error ? err.stack?.slice(0, 600) : undefined,
+      ms: Date.now() - startedAt,
+    })
     return NextResponse.json(
       { ok: false, error: err instanceof Error ? err.message : 'unknown error' },
       { status: 500 }

@@ -6,7 +6,9 @@ import { getSaveById } from '@/lib/data/saves'
 import { getHouseholdId } from '@/lib/data/household'
 import { CATEGORY_LABELS, CATEGORY_COLORS, formatRelativeTime } from '@/lib/utils/time'
 import { getUserInitials, getUserColor } from '@/lib/utils/identity'
+import { ExtractedSection } from '@/components/saves/extracted-section'
 import { DeleteButton } from './delete-button'
+import type { ExtractedData } from '@/lib/actions/enrich-url'
 import type { Metadata } from 'next'
 import type { Database } from '@/lib/types/supabase'
 
@@ -39,9 +41,13 @@ export default async function SaveDetailPage({ params }: { params: Promise<{ id:
   const label = CATEGORY_LABELS[cat] ?? cat
   const color = CATEGORY_COLORS[cat] ?? '#888'
 
-  // Coordinates from canonical_data
-  const cd = save.canonical_data as { coords?: { lat: number; lng: number } } | null
+  // canonical_data: coords + per-category structured extracted data
+  const cd = save.canonical_data as {
+    coords?: { lat: number; lng: number }
+    extracted?: ExtractedData
+  } | null
   const coords = cd?.coords
+  const extracted = cd?.extracted
 
   // Hostname for the URL chip
   let hostname: string | null = null
@@ -211,6 +217,11 @@ export default async function SaveDetailPage({ params }: { params: Promise<{ id:
           <div className="font-mono text-[10px] text-white/25 tracking-wider tabular-nums">
             {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
           </div>
+        )}
+
+        {/* Per-category structured data — the save IS the artifact */}
+        {extracted && Object.keys(extracted).length > 0 && (
+          <ExtractedSection category={cat} extracted={extracted} />
         )}
 
         {/* Captures timeline */}

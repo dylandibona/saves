@@ -170,6 +170,11 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
       <input type="hidden" name="subtitle" value={subtitle ?? ''} />
       <input type="hidden" name="hero_image_url" value={heroImage ?? ''} />
       <input type="hidden" name="location_address" value={enriched?.subtitle ?? ''} />
+      <input
+        type="hidden"
+        name="extracted"
+        value={enriched?.extracted ? JSON.stringify(enriched.extracted) : ''}
+      />
 
       {/* Title field */}
       <div className="space-y-1.5">

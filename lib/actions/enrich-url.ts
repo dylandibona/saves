@@ -10,6 +10,53 @@ import {
 
 type SaveCategory = Database['public']['Enums']['save_category']
 
+/**
+ * Category-specific structured data extracted from the source.
+ * Whichever fields are relevant to the chosen category get filled;
+ * the rest stay null. Stored on saves.canonical_data.extracted so
+ * detail pages can render rich, source-equivalent context without
+ * the user needing to follow the link.
+ */
+export type ExtractedData = {
+  // recipe
+  ingredients?: string[]
+  instructions?: string[]
+  totalTime?: string
+  servings?: string | number
+
+  // workout
+  exercises?: Array<{ name: string; sets?: string; reps?: string; notes?: string }>
+  duration?: string
+  equipment?: string[]
+
+  // place / restaurant / hotel
+  address?: string
+  hours?: string
+  phone?: string
+  website?: string
+  priceLevel?: string
+
+  // article / book
+  author?: string
+  summary?: string
+  readTime?: string
+  publishedAt?: string
+
+  // tv / movie
+  year?: string | number
+  director?: string
+  runtime?: string
+
+  // product
+  brand?: string
+  price?: string
+
+  // podcast / music
+  episodeNumber?: string | number
+  showName?: string
+  artist?: string
+}
+
 export type EnrichedUrl = {
   title: string | null
   subtitle: string | null
@@ -22,6 +69,8 @@ export type EnrichedUrl = {
   source: 'google_maps' | 'ai' | 'og' | 'heuristic'
   // For UX disambiguation when category confidence is low
   alternativeCategories?: SaveCategory[]
+  // Per-category structured data — the save IS the artifact, not a bookmark.
+  extracted?: ExtractedData
 }
 
 // ─── Fetch + OG parser ────────────────────────────────────────────────────────
@@ -120,6 +169,7 @@ type ClaudeResult = {
   subtitle: string | null
   note: string | null
   confidence: 'high' | 'medium' | 'low'
+  extracted: ExtractedData
 }
 
 const EMPTY_CLAUDE: ClaudeResult = {
@@ -129,11 +179,13 @@ const EMPTY_CLAUDE: ClaudeResult = {
   subtitle: null,
   note: null,
   confidence: 'low',
+  extracted: {},
 }
 
 async function classifyWithClaude(
   url: string,
   og: OgData,
+  htmlExcerpt: string,
   hint?: 'place' | null,
 ): Promise<ClaudeResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY
@@ -147,31 +199,97 @@ async function classifyWithClaude(
       ? '\nThis is a Google Maps URL, so the category is one of: restaurant, hotel, place, event. Pick the most likely one.'
       : ''
 
-    const prompt = `You are classifying a URL for a personal saves library.
+    // Pull text content from HTML body — strip tags, normalize whitespace,
+    // cap at ~6k chars. This is where recipe ingredients, workout sets,
+    // article body, etc. live. JSON-LD structured data also gets scanned.
+    const bodyText = htmlExcerpt
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 6000)
+
+    // Look for JSON-LD structured data (recipe sites, articles, products often have this)
+    const jsonLdMatches = htmlExcerpt.match(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
+    const jsonLd = jsonLdMatches
+      ? jsonLdMatches.map(m => m.replace(/<\/?script[^>]*>/gi, '').trim()).join('\n').slice(0, 4000)
+      : ''
+
+    const prompt = `You are extracting a save for a personal recommendation library. The save IS the destination — extract enough context that the user does not have to follow the link later.
 
 URL: ${url}
 OG Title: ${og.title ?? '(none)'}
 OG Description: ${og.description ?? '(none)'}
 Site Name: ${og.siteName ?? '(none)'}${placeHint}
 
-Categories available:
-recipe | tv | movie | restaurant | hotel | place | event | book | podcast | music | article | product | workout | noted
+${jsonLd ? `JSON-LD structured data (parse for recipe/article/product fields):\n${jsonLd}\n\n` : ''}Page text excerpt:
+${bodyText.slice(0, 3500) || '(empty)'}
+
+Categories: recipe | tv | movie | restaurant | hotel | place | event | book | podcast | music | article | product | workout | noted
 
 Return ONLY valid JSON (no markdown, no explanation):
 {
-  "category": "<best single category from the list>",
-  "alternativeCategories": ["<one or two other plausible categories, or empty array if confident>"],
-  "title": "<clean, short title — improve OG title if noisy, strip ' - Google Maps' suffixes, or null to keep OG>",
-  "subtitle": "<address, neighborhood, byline, or other secondary detail — or null>",
-  "note": "<one short sentence on why someone might save this, or null>",
-  "confidence": "<high | medium | low>"
+  "category": "<best single category>",
+  "alternativeCategories": ["<one or two plausible alternates if uncertain, else []>"],
+  "title": "<clean short title — strip site suffixes, fix Instagram noise, null to keep OG>",
+  "subtitle": "<one short sentence: byline, address, neighborhood, episode label, or null>",
+  "note": "<one short sentence on why someone would save this, or null>",
+  "confidence": "<high | medium | low>",
+  "extracted": {
+    // Fill ONLY fields relevant to the chosen category. Use null for unknowns.
+    // Be specific and concrete — these go straight into the saved card.
+
+    // recipe:
+    "ingredients": ["1 cup flour", "2 eggs", ...] or null,
+    "instructions": ["Mix dry ingredients", "Add eggs and stir", ...] or null,
+    "totalTime": "30 min" or null,
+    "servings": 4 or null,
+
+    // workout:
+    "exercises": [{"name":"Kettlebell Swing","sets":"3","reps":"15","notes":null}, ...] or null,
+    "duration": "20 min" or null,
+    "equipment": ["kettlebell"] or null,
+
+    // place/restaurant/hotel:
+    "address": "123 Main St, Brooklyn, NY" or null,
+    "hours": "Mon-Fri 9am-10pm" or null,
+    "phone": "(555) 123-4567" or null,
+    "website": "https://..." or null,
+    "priceLevel": "$$" or null,
+
+    // article/book:
+    "author": "Jane Smith" or null,
+    "summary": "2-3 sentence summary capturing the main point" or null,
+    "readTime": "8 min read" or null,
+    "publishedAt": "2024-03-15" or null,
+
+    // tv/movie:
+    "year": 2023 or null,
+    "director": "Greta Gerwig" or null,
+    "runtime": "2h 15m" or null,
+
+    // product:
+    "brand": "Patagonia" or null,
+    "price": "$249" or null,
+
+    // podcast/music:
+    "episodeNumber": 142 or null,
+    "showName": "Ezra Klein Show" or null,
+    "artist": "Phoebe Bridgers" or null
+  }
 }
 
-Be decisive. Only mark medium/low if the URL is genuinely ambiguous.`
+Rules:
+- Be DECISIVE on category. Only mark medium/low confidence if genuinely ambiguous.
+- Extract structured data WHENEVER the source has it — recipe sites usually do, Instagram captions often do for workouts/recipes if the user typed them out.
+- Do not invent data. Null is correct when info is not available.
+- For Instagram posts, the OG description is often the caption — read it carefully for workout sets, recipe ingredients, etc.
+- Keep summaries to 2-3 sentences max, no preamble.`
 
     const msg = await client.messages.create({
       model: 'claude-opus-4-5',
-      max_tokens: 384,
+      max_tokens: 1500,
       messages: [{ role: 'user', content: prompt }],
     })
 
@@ -184,6 +302,7 @@ Be decisive. Only mark medium/low if the URL is genuinely ambiguous.`
       subtitle?: string | null
       note?: string | null
       confidence?: string
+      extracted?: ExtractedData
     }
 
     const validate = (c: string | undefined): SaveCategory | null =>
@@ -194,6 +313,18 @@ Be decisive. Only mark medium/low if the URL is genuinely ambiguous.`
         ? parsed.confidence
         : 'medium'
 
+    // Strip out any null/empty fields from extracted so the JSONB stays clean
+    const cleanExtracted: ExtractedData = {}
+    if (parsed.extracted) {
+      for (const [k, v] of Object.entries(parsed.extracted)) {
+        if (v === null || v === undefined) continue
+        if (Array.isArray(v) && v.length === 0) continue
+        if (typeof v === 'string' && !v.trim()) continue
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;(cleanExtracted as any)[k] = v
+      }
+    }
+
     return {
       category: validate(parsed.category),
       alternativeCategories: (parsed.alternativeCategories ?? [])
@@ -203,6 +334,7 @@ Be decisive. Only mark medium/low if the URL is genuinely ambiguous.`
       subtitle: parsed.subtitle ?? null,
       note: parsed.note ?? null,
       confidence,
+      extracted: cleanExtracted,
     }
   } catch {
     return EMPTY_CLAUDE
@@ -237,7 +369,7 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
     // Use Claude to classify (restaurant/hotel/place/event) — always, since
     // the keyword heuristic was too weak. Falls back to 'place' if no API key.
     const claude = hasApiKey
-      ? await classifyWithClaude(resolvedUrl, og, 'place')
+      ? await classifyWithClaude(resolvedUrl, og, html, 'place')
       : EMPTY_CLAUDE
 
     const category: SaveCategory =
@@ -254,6 +386,7 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
       confidence: claude.confidence === 'low' ? 'medium' : claude.confidence, // we know it's a place
       source: 'google_maps',
       alternativeCategories: claude.alternativeCategories,
+      extracted: claude.extracted,
     }
   }
 
@@ -309,7 +442,7 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
 
     if (hasApiKey) {
       // Hint Claude that the OG data may be unhelpful and to use the URL pattern
-      const claude = await classifyWithClaude(rawUrl, og)
+      const claude = await classifyWithClaude(rawUrl, og, fetched?.html ?? '')
       return {
         title: claude.title
           ?? (ogTitleIsGeneric ? fallbackTitle : og.title),
@@ -322,6 +455,7 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
         confidence: claude.category ? claude.confidence : 'low',
         source: 'ai',
         alternativeCategories: claude.alternativeCategories,
+        extracted: claude.extracted,
       }
     }
 
@@ -360,7 +494,7 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
   const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
 
   if (hasApiKey) {
-    const claude = await classifyWithClaude(rawUrl, og)
+    const claude = await classifyWithClaude(rawUrl, og, fetched?.html ?? '')
     return {
       title: claude.title ?? og.title,
       subtitle: claude.subtitle ?? og.description ?? null,
@@ -372,6 +506,7 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
       confidence: claude.category ? claude.confidence : 'low',
       source: 'ai',
       alternativeCategories: claude.alternativeCategories,
+      extracted: claude.extracted,
     }
   }
 
