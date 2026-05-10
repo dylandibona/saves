@@ -10,79 +10,77 @@ This doc is the input to every subsequent decision. When `STRATEGY.md` or `REQUI
 
 ## A. Why are we doing this?
 
-The cheapest source of clarity. If these answers are vague, every later decision will drift.
+Many people are now using Instagram and news aggregators, possibly other distince mobile apps (google maps, etc) to discover and research things that they'll be interested in remember later or when the context is right (location, time of day, etc). but there are so many source for this kind of thing now that most of these get lost in a neverending DM feed, text message feed, email, etc. They're just simply lost. We want to be able to save them quickly from a mostly mobile-first experience. We want quick access to all the various things we think are worth remembering as a family, couple, friend group, etc. We want quick context, easy editability, smart content/context - based suggestions, light-weight and non-interruptive. 
 
 ### A1. What is your one-line motivation for building this?
 
-The most honest sentence you can write about why this matters to you personally. Not the pitch deck version — the version you'd say to a friend over coffee.
-
-> *(your answer here)*
+Nearly 80% of the things I find interesting as go through the daily scroll are lost to my individual apps' feeds, storage, DMs etc - saving them in a shared resource that's easy to access will remove that "what was that recipe I wanted to remember? that new sports bar? that hotel in the dolemites?" and give me quick access to a cognitive-load-free memory.
 
 ### A2. Why is now the right moment?
 
 Why not last year? Why not next year? What's specifically true today that makes this the right thing to spend the next year on?
 
-> *(your answer here)*
+Now is the right moment because my frustration with losing these things has reached the motivation point and because channels for discovering new things have become ever more disintegrated from my daily life and from each other.
 
 ### A3. If this works exactly the way you want it to, what is your life like 18 months from now?
 
 Be specific. Working how many hours? On what? Where? With whom? Earning what? What does Tuesday at 2pm look like?
 
-> *(your answer here)*
+Success means that this app is no longer an app. It's a ritual, a daily habit, a must-have, a can't-do-without. IF it becomes commercial, that's great but the aim here is commercial grade NOT one of those projects that's half finished, could've been great, never realized, still wracking up Supabase charges then deleted. 
 
 ### A4. If this doesn't work — i.e., it's at month 12 and there's no real traction — what's the acceptable outcome?
 
 What's the version of "this didn't pan out" that you can live with? "I learned a lot" is a fine answer if it's true. So is "I built a beautiful tool just for us." So is "I made $30k from a small loyal user base and went back to a job."
 
-> *(your answer here)*
+That will be a good problem to have in that it means that we took it as far as we could; that we feel like it COULD gain traction, that it's not half-finished. I can live with 'i learned a lot' but I'd prefer to live with 'maybe not the killer app of the century but i use it every day' If we could make recurring income from it, I'd like to explore that when we're conrfident in the app. 
 
 ### A5. What's your "stop doing this" signal?
 
 The thing that, if it happens, you walk away. Could be financial ("I burned through $X with no revenue"), time-based ("I'm still on Phase 2 in month 9"), emotional ("Keelin and I are fighting about it"), or signal-based ("after public launch, MAU < 200"). Write the kill criteria *now* before you're emotionally invested.
 
-> *(your answer here)*
+Costs are outweighing utility. It just never becomes truly useful. The barrier to true utility is too great (financial, tech, something else)
 
 ---
 
 ## B. Personal context
 
-The part most strategy docs skip. Resources include time and energy, not just money.
+I'm very creative and very motivate to create true utility with a brand that expresses its promise. I'm a quick learner and I believe that between me and AI resources there's no reason we couldn't make something impressive. I'd like to personally achieve something impressive here. 
 
 ### B1. Day-job situation
 
 Are you full-time on this, part-time on this, or fitting it around something else? If "fitting around," for how long?
 
-> *(your answer here)*
+Part-timing it. Fitting it around my income-producing work. How long depends on the promise it shows for becoming real. Honestly, the commercial potential is less of a factor until we feel we have something really compelling here. So the focus is to create something compelling.
 
 ### B2. Personal financial runway
 
 Honest answer: how many months of personal expenses do you have covered without revenue from this? (You don't have to share a number; just write a duration: "6 months," "18 months," "indefinite.") This shapes everything from team size to launch urgency.
 
-> *(your answer here)*
+This is a side hustle, part-time thing. I could do this endlessly as long as it's showing potential. This is NOT something I'm basing future income needs on. 
 
 ### B3. Capital available to put into the business
 
 Separate from personal runway. How much money are you willing to spend on this project — pre-revenue — across designers, contractors, software, brand work, legal? Pick a range, not a single number.
 
-> *(your answer here)*
+Very little. But that's less to do with personal investment potential and more to do with the fact that this should be a case study in what a motivated and talented individual can get done with Ai. If it's so impressive and showing big enough potential then engaging outside help will become an obvious choice. We'll test among ourselves, then friends. If after that it's catching on and legal/etc is needed - great.
 
 ### B4. Keelin's involvement
 
 She's a user, a co-founder, a sounding board, an investor, supportive-but-not-involved? Be honest about what role she'd play and what she's already said about it.
 
-> *(your answer here)*
+User. Tech-skeptic. Heavy Instagram user. Perfect test case. Not involved in development. Only feedback. 
 
 ### B5. Health / sustainability
 
 Solo founder burnout is the biggest risk to solo founder products. What are your non-negotiables for sustainability? Daily exercise? Weekend off? Therapy? Hobbies? Vacation cadence? Write them down and treat them as project requirements.
 
-> *(your answer here)*
+You're thinking of this wrong. This is not a new project that will be looking for funding. This is a project looking to make itself truly useful. becoming a solo founder would be a result of our early success building. 
 
 ### B6. Existing network / advantages to leverage
 
 What do you already have that most founders don't? Specific people, specific access, specific skills, specific existing audience. List five things, even if they feel small.
 
-> *(your answer here)*
+Real brand and utility creation skills. AI confidence. Executive level design and execution ability. Diverse creative skills at a professional level. 
 
 ---
 
@@ -99,13 +97,13 @@ Pick one of the three benchmarks from `REQUIREMENTS.md` Section 4, or write your
 - [ ] **~$300k+ cap** — small team. Fully production-grade with margin. (Linear-tier achievable with effort.)
 - [ ] **Other:** *(write your own)*
 
-> *(your answer + brief reasoning)*
+> When we get to an MVP and the path to how these are defined and different we'll answer that. One thing I hate is silicon valley self-impressed tech CEO who plans on his private island before building anything. 
 
 ### C2. Where does this capital come from?
 
 Personal savings? Founding-member campaign cash flow? Angel investment? Bootstrap from another business? Don't borrow against the future you don't have yet.
 
-> *(your answer here)*
+See C1
 
 ### C3. What's the burn rate ceiling?
 
@@ -122,7 +120,7 @@ Even a small angel check ($25–100k) changes the company's shape (board seat? c
 - [ ] Open to raising a seed round if needed.
 - [ ] Not sure — depends on terms.
 
-> *(your answer + reasoning)*
+> That will be a great problem to have. If we acheive that kind of success with this app, then sure but very little. 
 
 ---
 
@@ -132,7 +130,7 @@ Even a small angel check ($25–100k) changes the company's shape (board seat? c
 
 Pick one:
 
-- [ ] **Solo** — Dylan + Claude + occasional contractors only.
+- [x] **Solo** — Dylan + Claude + occasional contractors only.
 - [ ] **Founding designer** — Dylan + one designer (full-time or 80%) for the duration.
 - [ ] **Small team** — Dylan + designer + iOS engineer (full or contract).
 - [ ] **Other:** *(describe)*
@@ -141,7 +139,7 @@ Pick one:
 
 ### D2. If hiring/engaging a designer, what's your sourcing approach?
 
-- [ ] Network introductions.
+- [x] Network introductions.
 - [ ] Outreach to specific people whose work I admire (list them).
 - [ ] Studio engagement (which ones?).
 - [ ] Job posting on Designer News / Sidebar / Read.cv.
@@ -153,7 +151,7 @@ Pick one:
 
 What kind of designer? Brand strategist? Product designer? Both-in-one? Jr/mid/senior? Industry background (consumer? B2B? agency? in-house?). Write a one-paragraph "ideal candidate" description.
 
-> *(your answer here)*
+> if we needed someone, I'd look on Dribbble for the most impressive, out of the box design thinking. Then engage individually. 
 
 ### D4. iOS engineer — when and how?
 
@@ -162,13 +160,13 @@ If native iOS is in scope (see Section E):
 - Full-time hire, contractor, or fractional?
 - Sourcing approach?
 
-> *(your answer here)*
+> That will be contract via contract work resourcing site. 
 
 ### D5. What roles are you NOT willing to outsource?
 
 The things that have to stay with you regardless. Examples: "the brand voice," "the product principles," "the user research," "the AI prompt engineering." Naming them upfront prevents drift.
 
-> *(your answer here)*
+> product principles, utility aspiration. 
 
 ---
 
@@ -178,8 +176,8 @@ The things that have to stay with you regardless. Examples: "the brand voice," "
 
 Pick one:
 
-- [ ] **PWA-only at launch.** Faster, cheaper. Risk: doesn't feel like an iOS app. Native added later if signal warrants.
-- [ ] **PWA at launch, native iOS at launch+3 months.** Compromise.
+- [x] **PWA-only at launch.** Faster, cheaper. Risk: doesn't feel like an iOS app. Native added later if signal warrants.
+- [x] **PWA at launch, native iOS at launch+3 months.** Compromise.
 - [ ] **Native iOS at launch.** Highest quality. Adds 3–4 months to launch timeline.
 
 > *(your answer + reasoning)*
@@ -191,7 +189,7 @@ Pick one:
 - [ ] Web PWA covers Android forever.
 - [ ] Other: *(describe)*
 
-> *(your answer here)*
+> As a nice to have once we get iOS dialed in. 
 
 ### E3. The five signature flows — all five, or fewer at launch?
 
@@ -199,17 +197,17 @@ Pick one:
 
 If trimming: which can wait, and what's lost by waiting?
 
-> *(your answer here)*
+> Capture and Library are V1 but at fully featured. The rest are already nice to haves anyway. 
 
 ### E4. Audio capture / voice capture
 
 "Hey Saves, save that podcast Marco mentioned" — is this v1 or later? It's substantial work (Whisper integration + intent parsing + on-device speech UI).
 
 - [ ] v1.
-- [ ] v2 / post-launch.
+- [x] v2 / post-launch.
 - [ ] Never.
 
-> *(your answer here)*
+> Not on the current roadmap.
 
 ### E5. The "make-the-save-active" loops
 
@@ -219,7 +217,7 @@ Recipe → grocery list. Workout → fullscreen execute + Apple Health. Article 
 - [ ] One at launch (which?).
 - [ ] None at launch.
 
-> *(your answer + which to prioritize)*
+> Depends on source. If the source has that information let's surface enough of it to let the user know that it's worth returning to the source and getting the complete context. This is a way of surfacing the gold nuggets from the daily feed and finding them later. IT doesn't replace the content (that a bit differet from recime)
 
 ### E6. Pocket migration importer — yes / no?
 
@@ -229,7 +227,7 @@ Recipe → grocery list. Workout → fullscreen execute + Apple Health. Article 
 - [ ] Yes — ship in Phase 5.
 - [ ] No.
 
-> *(your answer + reasoning)*
+> Plan an importer for Pocket and others from the beginning. Make sure it's an architectural possiblity. 
 
 ---
 
@@ -242,13 +240,13 @@ Recipe → grocery list. Workout → fullscreen execute + Apple Health. Article 
 What's your final-or-leaning name? (Run domain check + USPTO search before committing.)
 
 - [ ] Cairn
-- [ ] Trove
+- [X] Trove
 - [ ] Atlas
 - [ ] Vellum
 - [ ] Other: *(write it)*
 - [ ] Stay with "Saves" (commit to making a generic name work)
 
-> *(your answer + reasoning)*
+> I'll need to update our current project to Trove (and we may need to find a clever spelling for copyright reasons but good for now as a decision) trove.dylandibona.com for now.
 
 ### F2. Domain availability
 
@@ -265,13 +263,13 @@ Check before committing. Note results:
 
 Quick USPTO TESS search for the name in software / consumer apps. Note any concerning prior filings.
 
-> *(your findings or "not yet checked")*
+> not necesary yet.
 
 ### F4. Brand sprint scope
 
 Pick one:
 
-- [ ] **In-house** with `huashu-design` and `taste-skill` skills, Dylan + Claude. ~$0–5k.
+- [X] **In-house** with `huashu-design` and `taste-skill` skills, Dylan + Claude. ~$0–5k.
 - [ ] **Solo designer engagement** — engage a specific indie designer for 4–6 weeks, ~$15–30k. *(Who?)*
 - [ ] **Studio engagement** — Order / Day Job / Studio Lin / Ramotion / other. ~$30–80k. *(Which one?)*
 
@@ -283,13 +281,13 @@ Pick one:
 - [ ] Commercial license (Klim's Söhne family or similar, ~$1–3k).
 - [ ] Commission custom typography (~$15–40k).
 
-> *(your answer)*
+> Google and Adobe for now. Commercial as we evolve. I also have a complete archive of possible fonts we could use for prototyping.
 
 ### F6. Voice and tone — non-negotiables
 
 Three rules of voice that the brand must always follow. Examples: "no exclamation marks except in genuine moments." "Plural-aware ('you and Keelin') always." "Confident, never hedging." Write yours.
 
-> *(your three rules)*
+> No em dashes. Clarity and Brevity. No exclamation points. More TBD 
 
 ---
 
@@ -303,7 +301,7 @@ Three rules of voice that the brand must always follow. Examples: "no exclamatio
 - [ ] Adjust to: *(write your numbers)*
 - [ ] Different model entirely: *(describe — e.g., one-time, freemium-only, etc.)*
 
-> *(your answer + reasoning)*
+> Let's gate it with a paid signup with a free lifetime code so we can get users in there but get stripe going asap. I'm thinking more like $3/user/month for now. paid users can invite people to their Trove for 50% off. $36/year monthly or $28/year upfront. 
 
 ### G2. Free tier shape
 
@@ -313,7 +311,7 @@ Three rules of voice that the brand must always follow. Examples: "no exclamatio
 - [ ] Different limits: *(specify)*
 - [ ] No free tier — paid only.
 
-> *(your answer)*
+> 12 free saves, all functionality works. 
 
 ### G3. Founding member campaign timing
 
@@ -322,9 +320,9 @@ When does it open? When does it close (date or # sold)?
 - [ ] Open at Phase 1 marketing-page launch (collect waitlist now, charge later).
 - [ ] Open at Phase 2 product reveal.
 - [ ] Open at public launch.
-- [ ] No founding-member tier.
+- [x] No founding-member tier.
 
-> *(your answer + cadence)*
+> we'll handle friends and family testers/founders with free code. 
 
 ### G4. Outside revenue paths to consider
 
@@ -335,7 +333,7 @@ Beyond the $8/$12/$199 mix:
 - [ ] B2B / team plan (interior designer firms, agencies)? — *(my position)*
 - [ ] One-time lifetime add-on packs (e.g., Trip mode unlock)? — *(my position)*
 
-> *(your reasoning)*
+> Backlog this. 
 
 ---
 
@@ -345,21 +343,21 @@ Beyond the $8/$12/$199 mix:
 
 Pick one:
 
-- [ ] **Quiet beta first.** Soft launch to friends + family for ~3 months. Founding-member campaign opens after learnings.
-- [ ] **Founding member open at launch.** 500 spots visible from day 1. High pressure to deliver.
+- [X] **Quiet beta first.** Soft launch to friends + family for ~3 months. Founding-member campaign opens after learnings.
+- [X] **Founding member open at launch.** 50 spots visible from day 1. High pressure to deliver.
 - [ ] **Indie press launch.** Sidebar.io / Designer News / Product Hunt sequenced for max exposure.
 - [ ] **Hybrid.** *(describe)*
 
-> *(your answer + reasoning)*
+> more than that will TBD based on early success. 
 
 ### H2. Marketing channels you're committed to
 
 - [ ] Indie design press (Sidebar.io, Designer News, etc.)
-- [ ] Pocket migration SEM
+- [x] Pocket migration SEM
 - [ ] TikTok / Instagram organic content
-- [ ] Newsletter / newsletter sponsorships
-- [ ] Influencer outreach
-- [ ] Paid social (Meta, etc.)
+- [x] Newsletter / newsletter sponsorships
+- [x] Influencer outreach
+- [x] Paid social (Meta, etc.)
 - [ ] Other: *(describe)*
 
 > *(your top 3 with reasoning)*
@@ -368,10 +366,10 @@ Pick one:
 
 DIY or engage someone? If engaging: in-house comms hire, fractional, or agency?
 
-- [ ] DIY (Dylan does outreach).
+- [x] DIY (Dylan does outreach).
 - [ ] Fractional comms support around launch (~$3–8k/mo for 3 months).
 - [ ] Agency.
-- [ ] Don't bother — let product speak.
+- [x] Don't bother — let product speak.
 
 > *(your answer)*
 
@@ -379,7 +377,7 @@ DIY or engage someone? If engaging: in-house comms hire, fractional, or agency?
 
 Photography, video, written manifesto, social content. ~$5–15k for a serious launch package.
 
-- [ ] Bootstrapped — Dylan + iPhone.
+- [x] Bootstrapped — Dylan + iPhone.
 - [ ] Modest budget (~$3–5k for one shoot day or video).
 - [ ] Full production (~$10–15k).
 
@@ -398,16 +396,16 @@ For each, mark:
 
 | Feature | Position |
 |---|---|
-| Public profiles | |
-| Following / followers | |
-| Comments on saves | |
-| Recommendations from strangers | |
-| A "discover" feed of other users' saves | |
-| Streaks / gamification / achievements | |
-| Ad-supported free tier | |
-| Affiliate links (commission on referrals) | |
-| Crypto / NFT / web3 anything | |
-| AI chat with your library ("ask your saves") | |
+| Public profiles |🟡|
+| Following / followers |invite people to follow your Trove - quick adds to your own from theirs|
+| Comments on saves |✅|
+| Recommendations from strangers |✅ - if it's a stranger, it shouldn't be near my trove|
+| A "discover" feed of other users' saves |❌ - but not at first. all discovery happens in already existing behaviors for now|
+| Streaks / gamification / achievements |✅||
+| Ad-supported free tier |✅||
+| Affiliate links (commission on referrals) |✅||
+| Crypto / NFT / web3 anything |✅||
+| AI chat with your library ("ask your saves") |🟡 - i could see asking, when you have a huge trove, where's that hotel with the cool pool in Florence or something like that |
 
 > *(any annotations or amendments)*
 
@@ -419,25 +417,25 @@ For each, mark:
 
 Of the risks in `STRATEGY.md` Section 10 (Mymind ships households / Apple Notes adds AI / Anthropic price hike / IG scraping breaks / solo burnout / pricing wrong / brand sprint produces something derivative / App Store rejection) — which one keeps you up at night, and what's your real mitigation?
 
-> *(your answer)*
+> nothing keeps me up at night about this. this is free from needing to perform or make money for now. 
 
 ### J2. The thing you'd do differently if cap was 2x
 
 If your budget cap doubled tomorrow, what would you spend the additional money on? This often reveals the highest-leverage gap.
 
-> *(your answer)*
+> nothing. that's the beauty. we have nothing depending on us. just our own bar for success. 
 
 ### J3. The thing you'd do differently if timeline was 2x
 
 If you had 24 months instead of 12 — what would you build differently?
 
-> *(your answer)*
+> nothing.
 
 ### J4. The thing you'd do differently if it was just for you and Keelin forever
 
 If you committed to never going public — just an artifact for the two of you — what changes? This often reveals what's "for the business" vs "for the actual user."
 
-> *(your answer)*
+> nothing. we're a high-bar. if it works for us, it'll work for anyone. 
 
 ---
 
@@ -445,13 +443,13 @@ If you committed to never going public — just an artifact for the two of you �
 
 The things you commit to *not changing* through the build, no matter the pressure. Write them in your own words.
 
-1. *(commitment 1)*
-2. *(commitment 2)*
-3. *(commitment 3)*
-4. *(commitment 4)*
-5. *(commitment 5)*
-6. *(commitment 6)*
-7. *(commitment 7)*
+1. Ease of use then disappear
+2. Montly reminder email - things you've saved - only if new saves warrants it
+3. CLEAN and interesting and super refined design. Must have.
+4. commercial inputs or demands
+5. Android is secondary but on the radar
+6. tech stack will be what Claude and I decide on together
+7. quality feedback
 
 These get printed and pinned somewhere visible. They're the things that become arguments when reviewers (designers, advisors, investors, friends) push back. The answer is "we're not changing this."
 
