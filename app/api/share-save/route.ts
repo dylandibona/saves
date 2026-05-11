@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/lib/types/supabase'
 import { enrichUrl } from '@/lib/enrichment/enrich'
+import { sanitizeUrl } from '@/lib/utils/url-detect'
 import { userCanSave } from '@/lib/billing/can-save'
 
 type SaveCategory = Database['public']['Enums']['save_category']
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest) {
       url = (form.get('url') as string | null)?.trim() ?? null
       note = (form.get('note') as string | null)?.trim() ?? null
     }
+
+    // Clean up iOS-clipboard junk (duplicated URLs etc.) before processing.
+    if (url) url = sanitizeUrl(url)
 
     if (!url || !url.startsWith('http')) {
       console.warn('[share-save] invalid url', { url: url?.slice(0, 80) })

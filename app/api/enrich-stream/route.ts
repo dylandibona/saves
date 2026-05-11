@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server'
-import { detectUrlType, extractMapsCoords, extractMapsPlaceName, findCoordsInText } from '@/lib/utils/url-detect'
+import { detectUrlType, extractMapsCoords, extractMapsPlaceName, findCoordsInText, sanitizeUrl } from '@/lib/utils/url-detect'
 import { fetchAndParse, classifyWithClaude, type ExtractedData } from '@/lib/enrichment/enrich'
 import type { Database } from '@/lib/types/supabase'
 
@@ -38,7 +38,10 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({})) as { url?: string }
-  const rawUrl = body.url?.trim()
+  const inputUrl = body.url?.trim()
+  // Clean iOS-clipboard-style duplicated URLs and trailing junk before
+  // touching the rest of the pipeline.
+  const rawUrl = inputUrl ? sanitizeUrl(inputUrl) : ''
 
   if (!rawUrl || !rawUrl.startsWith('http')) {
     return new Response(

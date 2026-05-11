@@ -1,5 +1,35 @@
 export type UrlType = 'google_maps' | 'instagram' | 'youtube' | 'generic'
 
+/**
+ * Clean up junk that comes from pasting URLs out of iOS clipboard, share
+ * sheets, and certain apps. Common patterns we've seen:
+ *   - Two URLs concatenated: "https://x.com/abc...https://x.com/..."
+ *   - URL with text appended: "look at this https://x.com/abc"
+ *   - Stray whitespace at either end
+ *
+ * Returns the first complete http(s) URL found in the input, or the input
+ * unchanged if nothing URL-shaped is in there.
+ */
+export function sanitizeUrl(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return trimmed
+
+  // Find all https:// or http:// positions in the string
+  const matches: number[] = []
+  const protocolPattern = /https?:\/\//gi
+  let m: RegExpExecArray | null
+  while ((m = protocolPattern.exec(trimmed)) !== null) {
+    matches.push(m.index)
+  }
+
+  // Zero or one protocols → return as-is (no duplication to fix)
+  if (matches.length <= 1) return trimmed
+
+  // Multiple protocols → take from first protocol to second protocol
+  // (exclusive), trimming trailing whitespace.
+  return trimmed.slice(matches[0], matches[1]).trim()
+}
+
 export type MapsCoords = { lat: number; lng: number } | null
 
 export function detectUrlType(url: string): UrlType {

@@ -333,11 +333,28 @@ Rules:
       }
     }
 
+    // Hard constraint: when the caller passed hint='place' (Google Maps
+    // URL), the category MUST be one of the place-shaped categories.
+    // Claude has been seen to pick 'recipe' or 'noted' when OG data is
+    // sparse, even with the prompt hint — so we override here.
+    const PLACE_CATEGORIES: ReadonlySet<SaveCategory> = new Set([
+      'restaurant', 'hotel', 'place', 'event',
+    ])
+    let category = validate(parsed.category)
+    if (hint === 'place') {
+      if (!category || !PLACE_CATEGORIES.has(category)) {
+        category = 'place'
+      }
+    }
+    const alternativeCategories = (parsed.alternativeCategories ?? [])
+      .map(validate)
+      .filter((c): c is SaveCategory => c !== null)
+      // For place hint, also filter alternatives to place-shaped only.
+      .filter(c => hint !== 'place' || PLACE_CATEGORIES.has(c))
+
     return {
-      category: validate(parsed.category),
-      alternativeCategories: (parsed.alternativeCategories ?? [])
-        .map(validate)
-        .filter((c): c is SaveCategory => c !== null),
+      category,
+      alternativeCategories,
       title: parsed.title ?? null,
       subtitle: parsed.subtitle ?? null,
       note: parsed.note ?? null,

@@ -140,6 +140,12 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
         case 'classifying':
           return { ...s, status: 'classifying' }
         case 'classified':
+          // Sync the form radio to AI's pick the moment it arrives so the
+          // preview and the form match. complete will confirm.
+          if (data.category) {
+            setSelectedCategory(data.category)
+            setCategoryAuto(true)
+          }
           return {
             ...s,
             status: 'building',
@@ -206,8 +212,10 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
       setTitle(snap.title)
     }
 
-    // Auto-select category if confident
-    if (snap.category && (snap.confidence === 'high' || snap.confidence === 'medium')) {
+    // Always auto-select AI's suggested category when one exists. The
+    // disambiguation prompt below the chips surfaces alternatives when
+    // confidence is low so the user can override with one tap.
+    if (snap.category) {
       setSelectedCategory(snap.category)
       setCategoryAuto(true)
     }
