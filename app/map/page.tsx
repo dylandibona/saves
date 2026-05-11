@@ -7,7 +7,6 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Map' }
 
-// Map tiles + markers load on client; no heavy computation server-side
 export const dynamic = 'force-dynamic'
 
 export default async function MapPage() {
@@ -19,11 +18,9 @@ export default async function MapPage() {
   return (
     <>
       <Nav />
-      {/* Full-viewport below the nav */}
-      <main
-        className="fixed inset-0 top-14"
-        style={{ zIndex: 0 }}
-      >
+      {/* Full-viewport canvas; bottom-nav floats above it. The top header
+          is a transparent overlay so map fills behind. */}
+      <main className="fixed inset-0" style={{ zIndex: 0 }}>
         <MapClient saves={saves} />
       </main>
     </>

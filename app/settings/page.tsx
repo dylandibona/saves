@@ -21,11 +21,34 @@ export default async function SettingsPage() {
   return (
     <>
       <Nav />
-      <main className="max-w-lg mx-auto px-6 py-8 space-y-12">
+      <main
+        className="max-w-[640px] mx-auto px-5 space-y-12"
+        style={{
+          paddingTop: '72px',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
+        }}
+      >
 
-        <header className="space-y-1">
-          <h1 className="font-serif-display text-3xl text-white/90 leading-tight">
+        <header className="space-y-1 mt-4">
+          <p
+            className="font-mono uppercase"
+            style={{
+              fontSize: '11px',
+              letterSpacing: '0.18em',
+              color: 'var(--color-mute)',
+            }}
+          >
             Settings
+          </p>
+          <h1
+            className="font-display mt-1"
+            style={{
+              fontSize: '36px',
+              color: 'var(--color-bone)',
+              lineHeight: 1.05,
+            }}
+          >
+            Your <span className="font-serif italic font-normal">place</span>.
           </h1>
         </header>
 

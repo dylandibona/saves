@@ -12,18 +12,40 @@ export default async function AddPage({
 }) {
   const params = await searchParams
   const initialUrl = params.url ?? ''
-  // Build redirect path that preserves the shared URL through login
   await requireUser(initialUrl ? `/add?url=${encodeURIComponent(initialUrl)}` : '/add')
 
   return (
     <>
       <Nav />
-      <main className="max-w-lg mx-auto px-5 py-10">
-        <div className="mb-8">
-          <h1 className="font-display text-white text-[36px]">
+      <main
+        className="max-w-[640px] mx-auto px-5"
+        style={{
+          paddingTop: '72px',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
+        }}
+      >
+        <header className="mb-8 mt-4">
+          <p
+            className="font-mono uppercase"
+            style={{
+              fontSize: '11px',
+              letterSpacing: '0.18em',
+              color: 'var(--color-mute)',
+            }}
+          >
+            New
+          </p>
+          <h1
+            className="font-display mt-1"
+            style={{
+              fontSize: '36px',
+              color: 'var(--color-bone)',
+              lineHeight: 1.05,
+            }}
+          >
             A new <span className="font-serif italic font-normal">find</span>.
           </h1>
-        </div>
+        </header>
         <AddForm initialUrl={initialUrl} />
       </main>
     </>

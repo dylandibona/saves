@@ -1,41 +1,47 @@
 import Link from 'next/link'
 import Image from 'next/image'
-import { formatRelativeTime, CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/utils/time'
+import { formatRelativeTime, CATEGORY_LABELS } from '@/lib/utils/time'
 import { getUserInitials, getUserColor } from '@/lib/utils/identity'
 import type { SaveWithRecommenders } from '@/lib/data/saves'
+import type { Database } from '@/lib/types/supabase'
+
+type SaveCategory = Database['public']['Enums']['save_category']
 
 /**
- * Pills showing who in the household saved this. One per unique user
- * from this save's captures, rendered as a small initials chip in their
- * own color. Distinct from external recommenders (Sprint 2).
+ * Save card — photo-led, full-bleed image, bookplate fallback when no image.
+ * See docs/component-specs.md §1 and docs/design-direction.md §4.
+ *
+ * The save IS the card — no chrome. Category appears as a 6px dot beside the
+ * title, never as a left-border accent strip (huashu anti-slop §6.2). The
+ * recommender identity pill sits in the top-right corner of the image, with
+ * dark text on saturated color (component-specs §11 "120% detail").
  */
-function SaverPills({ captures }: { captures: SaveWithRecommenders['captures'] }) {
-  const seen = new Set<string>()
-  const savers = captures
-    .map(c => c.users)
-    .filter((u): u is NonNullable<typeof u> => Boolean(u))
-    .filter(u => {
-      if (seen.has(u.id)) return false
-      seen.add(u.id)
-      return true
-    })
 
-  if (savers.length === 0) return null
+function categoryDotVar(cat: SaveCategory): string {
+  return `var(--color-cat-${cat})`
+}
+
+function SaverPill({ users }: { users: NonNullable<SaveWithRecommenders['captures'][number]['users']>[] }) {
+  if (users.length === 0) return null
+  const visible = users.slice(0, 2)
 
   return (
-    <div className="flex items-center -space-x-1">
-      {savers.slice(0, 3).map(u => {
+    <div className="flex -space-x-1.5">
+      {visible.map(u => {
         const initials = getUserInitials(u)
         const color = getUserColor(u)
         return (
           <span
             key={u.id}
             title={u.display_name ?? u.email}
-            className="inline-flex items-center justify-center text-[10px] font-semibold tabular-nums w-6 h-6 rounded-full"
+            className="grid place-items-center text-[10px] font-semibold tabular-nums tracking-wide rounded-full"
             style={{
+              width: '24px',
+              height: '24px',
               background: color,
-              color: 'oklch(0.10 0.005 240)',
-              border: `2px solid oklch(0.10 0.005 240)`,
+              color: 'var(--color-bg)',
+              border: '2px solid var(--color-surface)',
+              fontFamily: 'var(--font-sans)',
             }}
           >
             {initials}
@@ -46,91 +52,178 @@ function SaverPills({ captures }: { captures: SaveWithRecommenders['captures'] }
   )
 }
 
+function uniqueSavers(captures: SaveWithRecommenders['captures']) {
+  const seen = new Set<string>()
+  return captures
+    .map(c => c.users)
+    .filter((u): u is NonNullable<typeof u> => Boolean(u))
+    .filter(u => {
+      if (seen.has(u.id)) return false
+      seen.add(u.id)
+      return true
+    })
+}
+
 export function SaveCard({ save }: { save: SaveWithRecommenders }) {
-  const label = CATEGORY_LABELS[save.category] ?? save.category
-  const color = CATEGORY_COLORS[save.category] ?? '#888'
+  const category = save.category as SaveCategory
+  const label = CATEGORY_LABELS[category] ?? category
+  const savers = uniqueSavers(save.captures)
+  const hasImage = Boolean(save.hero_image_url)
 
   return (
     <Link
       href={`/saves/${save.id}`}
-      className="group block rounded-2xl transition-all duration-200"
+      aria-label={save.title}
+      className="group relative block overflow-hidden transition-transform duration-300 ease-out hover:scale-[1.005] active:scale-[0.995]"
       style={{
-        background: 'oklch(0.13 0.006 240)',
-        border: '1px solid rgba(255,255,255,0.04)',
+        background: 'var(--color-surface)',
+        borderRadius: 'var(--radius-lg)',
       }}
     >
-      <div className="flex items-stretch gap-0 p-4 group-hover:bg-white/[0.015] rounded-2xl transition-colors duration-200">
-        <div className="flex-1 min-w-0 space-y-2.5">
-          {/* Category — solid color chip, more confident than the old colored-text-only treatment */}
-          <div className="flex items-center gap-2">
+      {/* Image region — full bleed, OR bookplate fallback */}
+      {hasImage ? (
+        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 11' }}>
+          <Image
+            src={save.hero_image_url!}
+            alt=""
+            fill
+            sizes="(max-width: 768px) 100vw, 760px"
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+          />
+
+          {/* Identity pill — top right */}
+          {savers.length > 0 && (
+            <div className="absolute top-3 right-3">
+              <SaverPill users={savers} />
+            </div>
+          )}
+
+          {/* Capture-count badge — top left when 2+ */}
+          {save.capture_count >= 2 && (
             <span
-              className="inline-block text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-md"
+              className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums backdrop-blur-md"
               style={{
-                background: `${color}22`,
-                color,
+                background: 'oklch(0.14 0.005 95 / 0.70)',
+                color: 'var(--color-bone)',
               }}
             >
-              {label}
+              {save.capture_count}×
             </span>
-            {save.visibility === 'private' && (
-              <svg
-                width="11" height="11" viewBox="0 0 24 24" fill="none"
-                stroke="rgba(255,255,255,0.38)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                aria-label="Private save"
-              >
+          )}
+
+          {/* Private lock — bottom right of image */}
+          {save.visibility === 'private' && (
+            <span
+              className="absolute bottom-3 right-3 grid place-items-center rounded-full backdrop-blur-md"
+              style={{
+                width: '24px',
+                height: '24px',
+                background: 'oklch(0.14 0.005 95 / 0.70)',
+              }}
+              aria-label="Private save"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-bone)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
               </svg>
-            )}
-          </div>
-
-          {/* Title — bold sans, larger, higher contrast */}
+            </span>
+          )}
+        </div>
+      ) : (
+        /* Bookplate fallback — typographic treatment, no stock photo, no SVG fallback illustration */
+        <div
+          className="relative w-full flex flex-col justify-between p-5"
+          style={{
+            aspectRatio: '16 / 11',
+            background: 'var(--color-surface-2)',
+          }}
+        >
+          <span
+            className="font-mono uppercase tracking-[0.18em] text-[10px]"
+            style={{ color: 'var(--color-mute)' }}
+          >
+            {label}
+          </span>
           <h3
-            className="text-[17px] leading-tight text-white line-clamp-2"
-            style={{ fontWeight: 600, letterSpacing: '-0.01em' }}
+            className="font-display"
+            style={{
+              fontSize: '24px',
+              color: 'var(--color-paper)',
+              lineHeight: 1.1,
+            }}
+          >
+            {save.title}
+          </h3>
+          {savers.length > 0 && (
+            <div className="absolute top-3 right-3">
+              <SaverPill users={savers} />
+            </div>
+          )}
+          {save.visibility === 'private' && (
+            <span
+              className="absolute bottom-3 right-3 grid place-items-center rounded-full"
+              style={{
+                width: '24px',
+                height: '24px',
+                background: 'oklch(0.14 0.005 95 / 0.50)',
+              }}
+              aria-label="Private save"
+            >
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-bone)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              </svg>
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Text region (only when there's an image — bookplate has its own copy) */}
+      {hasImage && (
+        <div className="px-4 py-3">
+          <h3
+            className="text-[17px] leading-[1.25] line-clamp-2"
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontWeight: 600,
+              letterSpacing: '-0.01em',
+              color: 'var(--color-paper)',
+              textWrap: 'pretty',
+            }}
           >
             {save.title}
           </h3>
 
-          {/* Subtitle */}
           {save.subtitle && (
-            <p className="text-[13px] text-white/55 line-clamp-2 leading-relaxed">
+            <p
+              className="text-[13px] line-clamp-1 mt-1"
+              style={{ color: 'var(--color-mute)' }}
+            >
               {save.subtitle}
             </p>
           )}
 
-          {/* Meta row */}
-          <div className="flex items-center gap-2 pt-1">
-            <SaverPills captures={save.captures} />
-            {save.capture_count >= 2 && (
-              <span className="text-[11px] text-white/45 tabular-nums font-medium">
-                {save.capture_count}×
-              </span>
-            )}
+          {/* Meta row — category dot + label + relative time */}
+          <div className="mt-2 flex items-center gap-2 text-[12px]" style={{ color: 'var(--color-mute)' }}>
+            <span
+              aria-hidden
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '999px',
+                background: categoryDotVar(category),
+                flexShrink: 0,
+              }}
+            />
+            <span className="uppercase tracking-[0.08em] text-[11px] font-medium">
+              {label}
+            </span>
             {save.last_captured_at && (
-              <span className="text-[11px] text-white/35 ml-auto font-medium">
-                {formatRelativeTime(save.last_captured_at)}
-              </span>
+              <span className="ml-auto">{formatRelativeTime(save.last_captured_at)}</span>
             )}
           </div>
         </div>
-
-        {/* Hero thumbnail — larger and more confident than the old 16×16 chip */}
-        {save.hero_image_url && (
-          <div
-            className="shrink-0 w-20 h-20 ml-4 rounded-xl overflow-hidden bg-white/[0.04]"
-            style={{ border: '1px solid rgba(255,255,255,0.06)' }}
-          >
-            <Image
-              src={save.hero_image_url}
-              alt=""
-              width={80}
-              height={80}
-              className="object-cover w-full h-full transition-transform duration-500 group-hover:scale-105"
-            />
-          </div>
-        )}
-      </div>
+      )}
     </Link>
   )
 }

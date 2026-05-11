@@ -4,76 +4,111 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-mono), ui-monospace, monospace;
-  --font-serif: var(--font-serif), "Georgia", ui-serif, serif;
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-destructive: var(--destructive);
-  --radius-sm: calc(var(--radius) * 0.6);
-  --radius-md: calc(var(--radius) * 0.8);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) * 1.4);
+/* ────────────────────────────────────────────────────────────────────
+   FINDS DESIGN SYSTEM
+   See docs/design-direction.md for philosophy + reasoning.
+   See docs/component-specs.md for component-level specs.
+
+   Lineage: Kenya Hara's emptiness (warm paper-ink bowl) +
+   Sagmeister's discipline (one saturated green moment per surface).
+   ──────────────────────────────────────────────────────────────────── */
+
+@theme {
+  /* ── Surface tones — warm paper-ink, not tech-black ──────────────── */
+  --color-bg:         oklch(0.14 0.005 95);   /* the bowl */
+  --color-surface:    oklch(0.18 0.006 95);   /* save cards, modals */
+  --color-surface-2:  oklch(0.22 0.007 95);   /* hover, inputs, sheet headers */
+  --color-hairline:   oklch(0.30 0.008 95);   /* borders only when structurally required */
+
+  /* ── The signature — Finds Green ─────────────────────────────────── */
+  --color-brand:      oklch(0.42 0.09 155);   /* deep forest. Full-bleed only. */
+  --color-brand-ink:  oklch(0.95 0.02 95);    /* cream ink that sits on brand */
+
+  /* ── Type colors ─────────────────────────────────────────────────── */
+  --color-bone:       oklch(0.97 0.012 95);   /* CTA fill — paper-cream, never pure white */
+  --color-paper:      oklch(0.88 0.02 80);    /* primary body text */
+  --color-mute:       oklch(0.62 0.015 95);   /* secondary, metadata */
+  --color-faint:      oklch(0.42 0.012 95);   /* tertiary, disabled */
+
+  /* ── Category accents — jewel-tones tuned warm ───────────────────── */
+  /* Used as 6px dots beside titles or small chip fills. Never card grounds. */
+  --color-cat-recipe:     oklch(0.62 0.16 35);   /* terracotta */
+  --color-cat-tv:         oklch(0.50 0.14 280);  /* dusk violet */
+  --color-cat-movie:      oklch(0.45 0.12 25);   /* oxblood */
+  --color-cat-restaurant: oklch(0.66 0.14 70);   /* amber */
+  --color-cat-hotel:      oklch(0.55 0.08 200);  /* slate teal */
+  --color-cat-place:      oklch(0.60 0.10 145);  /* moss */
+  --color-cat-event:      oklch(0.65 0.16 350);  /* rose */
+  --color-cat-book:       oklch(0.50 0.10 80);   /* tobacco */
+  --color-cat-podcast:    oklch(0.55 0.12 320);  /* orchid */
+  --color-cat-music:      oklch(0.60 0.13 220);  /* ink blue */
+  --color-cat-article:    oklch(0.70 0.04 95);   /* paper gray */
+  --color-cat-product:    oklch(0.65 0.10 50);   /* sand */
+  --color-cat-workout:    oklch(0.62 0.16 130);  /* fern */
+  --color-cat-noted:      oklch(0.55 0.02 95);   /* graphite */
+
+  /* ── State colors ────────────────────────────────────────────────── */
+  --color-danger:     oklch(0.62 0.20 22);     /* ruby */
+
+  /* ── Radius scale ────────────────────────────────────────────────── */
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+
+  /* ── Fonts ───────────────────────────────────────────────────────── */
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono-space), ui-monospace, monospace;
+  --font-serif: var(--font-fraunces), "Georgia", ui-serif, serif;
 }
 
-:root {
-  /* Near-pure dark — confident, utility-first, not decorative.
-     Tiny hint of blue (chroma ~0.01) keeps it from feeling flat black,
-     but reads as gray-black, not jewel sapphire. */
-  --background: oklch(0.10 0.005 240);
-  --foreground: oklch(0.96 0.005 80);
-  --primary: oklch(0.96 0.005 80);
-  --primary-foreground: oklch(0.10 0.005 240);
-
-  /* Elevated card surface — slightly lighter than base */
-  --card: oklch(0.14 0.006 240);
-  --card-foreground: oklch(0.96 0.005 80);
-
-  --muted: oklch(0.14 0.006 240);
-  --muted-foreground: oklch(0.68 0.01 240);
-
-  --secondary: oklch(0.14 0.006 240);
-  --secondary-foreground: oklch(0.96 0.005 80);
-
-  --border: oklch(0.22 0.008 240);
-  --input: oklch(0.18 0.008 240);
-  --ring: oklch(0.50 0.05 240);
-  --destructive: oklch(0.62 0.22 20);
-
-  --radius: 0.75rem;
+/* Shadcn + Tailwind v3-style tokens kept as aliases for back-compat with
+   any remaining shadcn/ui components that haven't been refactored yet. */
+@theme inline {
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-paper);
+  --color-border: var(--color-hairline);
+  --color-input: var(--color-surface-2);
+  --color-ring: oklch(0.50 0.04 95);
+  --color-primary: var(--color-bone);
+  --color-primary-foreground: var(--color-bg);
+  --color-muted: var(--color-surface);
+  --color-muted-foreground: var(--color-mute);
+  --color-secondary: var(--color-surface);
+  --color-secondary-foreground: var(--color-paper);
+  --color-destructive: var(--color-danger);
+  --color-card: var(--color-surface);
+  --color-card-foreground: var(--color-paper);
 }
 
 @layer base {
-  * { @apply border-border; }
+  * { border-color: var(--color-hairline); }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--color-bg);
+    color: var(--color-paper);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Ensure nothing peeks behind the bottom tab bar */
+    padding-bottom: env(safe-area-inset-bottom);
   }
-  html { @apply font-sans; }
 
-  /* Fraunces — now ACCENT only. Used for specific emotional moments
-     (one or two per screen max), not as the default heading face. */
+  html { font-family: var(--font-sans); }
+
+  /* Fraunces — accent only. One italic word per surface, ever. */
   .font-serif {
+    font-family: var(--font-serif);
     font-variation-settings: 'opsz' 144, 'wght' 400;
   }
+
   .font-serif-display {
     font-family: var(--font-serif);
     font-style: italic;
-    font-variation-settings: 'opsz' 144, 'wght' 500, 'SOFT' 20;
+    font-variation-settings: 'opsz' 144, 'wght' 500, 'SOFT' 50;
   }
 
-  /* Primary display heading — bold sans, the new default for h1/h2 */
+  /* Display heading — heavy sans for h1/h2. */
   .font-display {
     font-family: var(--font-sans);
     font-weight: 700;
@@ -82,61 +117,48 @@
   }
 }
 
-/* ── Plastic chip system ────────────────────────────────────────── */
-/*    Semi-gloss physical chips: top highlight + bottom edge + drop shadow */
-/*    No glow. Physical depth only — real-world object language.           */
-.chip {
+/* ────────────────────────────────────────────────────────────────────
+   The wordmark cycle (cold-launch only signature motion)
+   ──────────────────────────────────────────────────────────────────── */
+@keyframes wordmark-glow {
+  0%, 100% { text-shadow: none; }
+  50%      { text-shadow: 0 0 24px rgba(245, 241, 234, 0.18); }
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   Conic-gradient border for the live-build preview (component spec §9)
+   ──────────────────────────────────────────────────────────────────── */
+@property --build-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes build-border-spin {
+  to { --build-angle: 360deg; }
+}
+
+.build-border {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  cursor: pointer;
-  user-select: none;
-  transition:
-    background   0.18s ease-in-out,
-    border-color 0.18s ease-in-out,
-    color        0.15s ease-in-out,
-    box-shadow   0.18s ease-in-out,
-    transform    0.15s ease-in-out;
+  isolation: isolate;
 }
-
-/* Inactive — neutral dark plastic */
-.chip-off {
-  background: linear-gradient(180deg,
-    rgba(255,255,255,0.11) 0%,
-    rgba(255,255,255,0.04) 60%,
-    rgba(0,0,0,0.06) 100%
+.build-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  padding: 1px;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--build-angle),
+    transparent 65%,
+    var(--color-bone) 85%,
+    transparent 100%
   );
-  border: 1px solid rgba(255,255,255,0.16);
-  color: rgba(255,255,255,0.48);
-  box-shadow:
-    0 2px 0   rgba(0,0,0,0.50),     /* bottom edge — the thickness */
-    0 4px 12px rgba(0,0,0,0.30),    /* drop shadow */
-    inset 0 1px 0 rgba(255,255,255,0.22); /* top gloss highlight */
+  -webkit-mask:
+    linear-gradient(#000, #000) content-box,
+    linear-gradient(#000, #000);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  animation: build-border-spin 2.4s linear infinite;
+  pointer-events: none;
 }
-
-.chip-off:hover {
-  background: linear-gradient(180deg,
-    rgba(255,255,255,0.15) 0%,
-    rgba(255,255,255,0.07) 60%,
-    rgba(0,0,0,0.04) 100%
-  );
-  border-color: rgba(255,255,255,0.24);
-  color: rgba(255,255,255,0.78);
-  box-shadow:
-    0 3px 0   rgba(0,0,0,0.55),
-    0 5px 14px rgba(0,0,0,0.32),
-    inset 0 1px 0 rgba(255,255,255,0.30);
-  transform: scale(1.025);
-}
-
-.chip-off:active {
-  box-shadow:
-    0 1px 0   rgba(0,0,0,0.55),
-    0 2px 5px rgba(0,0,0,0.28),
-    inset 0 1px 0 rgba(255,255,255,0.14),
-    inset 0 2px 4px rgba(0,0,0,0.14);
-  transform: scale(0.97);
-}
-
-/* Map provider is Google Maps (@react-google-maps/api) — see app/map/map-client.tsx
-   The dark sapphire styling lives there as a MapTypeStyle array. */

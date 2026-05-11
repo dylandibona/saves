@@ -18,12 +18,14 @@ export default async function FeedPage({
   return (
     <>
       <Nav />
-      <main className="max-w-2xl mx-auto px-4 py-6">
-        <FeedClient
-          saves={saves}
-          initialCategory={category}
-          initialQuery={q}
-        />
+      <main
+        className="max-w-[640px] mx-auto px-5"
+        style={{
+          paddingTop: '72px',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
+        }}
+      >
+        <FeedClient saves={saves} initialCategory={category} initialQuery={q} />
       </main>
     </>
   )

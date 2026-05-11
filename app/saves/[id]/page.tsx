@@ -58,7 +58,13 @@ export default async function SaveDetailPage({ params }: { params: Promise<{ id:
   return (
     <>
       <Nav />
-      <main className="max-w-lg mx-auto px-6 py-8 space-y-8">
+      <main
+        className="max-w-[640px] mx-auto px-5 space-y-8"
+        style={{
+          paddingTop: '72px',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
+        }}
+      >
 
         {/* Back */}
         <Link
