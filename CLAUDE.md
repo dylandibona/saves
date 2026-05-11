@@ -31,7 +31,6 @@ Guidance for Claude Code when working in this repository. **Keep this file curre
 | Vercel project | Personal "dbone" account, project name `saves` | Hobby tier, "Dylan's projects" team |
 | Supabase project | ref `lqmjglpzrfcpnpshbjwo` | Account: dylandibona (NOT Natrx) |
 | Google OAuth | Cloud Console project (legacy name "Saves") | Authorized origins: `saves.dylandibona.com` (will need `finds.dylandibona.com` once domain swaps). Authorized redirect URI: `https://lqmjglpzrfcpnpshbjwo.supabase.co/auth/v1/callback` |
-| Apple SIWA | Services ID `app.saves.siwa` | Domain `saves.dylandibona.com` registered. Domain verification file pending. |
 | Google Maps API | Cloud Console project (legacy name "Saves") | Maps JavaScript API enabled. Currently unrestricted — needs HTTP referrer restriction. |
 
 ---
@@ -46,7 +45,7 @@ Guidance for Claude Code when working in this repository. **Keep this file curre
 | Components | shadcn/ui (minimal) | Only Badge, Button, Input, Label, Separator added |
 | Animation | Framer Motion | Page transitions via `app/template.tsx`; chip hover/tap (no spring, no glow — see design rules) |
 | Database | Supabase Postgres + PostGIS | RLS on all tables |
-| Auth | Supabase Auth | Magic link + Apple SIWA + Google OAuth |
+| Auth | Supabase Auth | Magic link + Google OAuth. Apple SIWA was removed — too much config friction (domain verification file, JWT generation, Services ID maintenance). |
 | Map | Google Maps JS API via `@react-google-maps/api` | Custom dark style. Needs `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` |
 | AI | Anthropic claude-opus-4-5 | Server-side only, lazy import; graceful fallback if no key |
 | Hosting | Vercel | Production: `https://saves.dylandibona.com` |
@@ -71,7 +70,6 @@ End-to-end tested in production by Dylan unless noted otherwise:
 |---|---|---|
 | **Sign in via Google OAuth** | ✅ Working | 2FA flow completes; user lands in feed |
 | **Sign in via magic link** | ⚠️ Configured, not verified | Should work — same Supabase setup |
-| **Sign in via Apple SIWA** | ⚠️ Configured, domain verification pending | Won't work for new sign-ins until Apple verifies the domain |
 | **Feed at `/`** | ✅ Working | Live search, jewel-tone category chips (filtered to categories that have saves), staggered framer-motion animation, save cards with hero image + DD/KL initials pill + lock icon for private saves |
 | **Add at `/add`** | ✅ Working | Smart URL enrichment fires on paste/blur with 300ms debounce. Hero image + subtitle preview surface. Hidden inputs forward title/subtitle/hero/coords/extracted to action. |
 | **Add — Google Maps URLs** | ✅ Working well | Resolves shortened `maps.app.goo.gl/...` URLs via fetch+redirect. Extracts `@LAT,LNG` from path AND from `!3dLAT!4dLNG` data params. Place name from `/maps/place/...`. Claude classifies as restaurant/hotel/place/event with confidence. |
@@ -100,7 +98,6 @@ End-to-end tested in production by Dylan unless noted otherwise:
 | **PWA Share Target** | Code is in place (`public/manifest.json` + `app/share/route.ts`) but never validated end-to-end on a real device. | Primary path forward for "share from Instagram" UX — needs installation + test. |
 | **Existing pre-extraction finds** | Finds created before the extraction feature have empty `canonical_data.extracted`. No backfill or re-process action exists. | First few finds Dylan made look threadbare on the detail page. Workaround: delete + re-share. |
 | **Keelin onboarding** | She hasn't signed up yet. Needs to go through Google/magic-link flow. Her self-recommender will be created by the trigger but `display_name` won't be set; identity helper has hardcoded `keelin→KL` mapping that depends on her email containing "keelin". | Single-user app right now. |
-| **Apple SIWA** | Domain verification file (`apple-developer-domain-association.txt`) needs to be served at `/.well-known/`. Apple will reject sign-ins until done. | Anyone trying Apple sign-in fails silently or sees Apple's error page. |
 | **Google Maps API key** | Currently unrestricted. Anyone can use it from any domain by reading the bundle. | Security/billing risk — should restrict to `saves.dylandibona.com/*` (and `localhost:3000/*` for dev). |
 | **Hardcoded user mappings** | `lib/utils/identity.ts` has explicit `dylan→DD, keelin→KL` matched by email substring. | Fine for two known users; doesn't scale to public sign-ups. Need real user `display_name` field used + fallback initials computed from name parts. |
 | **No edit save UI** | Once saved, can't edit title/category/note/visibility from the UI. Must delete + re-add. | Mid-priority polish gap. |
@@ -116,11 +113,9 @@ End-to-end tested in production by Dylan unless noted otherwise:
 
 | Issue | Notes |
 |---|---|
-| Apple SIWA login | Will fail until domain verification file is uploaded. |
 | Existing saves missing extraction | No backfill. Re-share to enrich. |
 | Map shows nothing for non-place saves | Expected — map only renders saves with `canonical_data.coords`. Empty state shown when zero. |
 | Instagram captions often missing | Instagram blocks scrapers heavily. We get OG title/image/description sometimes; captions rarely. Real fix: Apify or headless browser. |
-| `generate-apple-secret.mjs` in repo (gitignored) | Has Team ID + Key ID hardcoded. Served its purpose. Safe to delete. |
 
 ---
 
@@ -134,8 +129,6 @@ End-to-end tested in production by Dylan unless noted otherwise:
 | Edit save UI | Medium | Per-field editing on detail page — title, category, note, visibility. |
 | Keelin sign-up + add to Dylan's household | One-time SQL | Keelin signs up, then run `UPDATE household_members SET household_id = '<dylans>' WHERE user_id = '<keelins>'` and delete her solo household. |
 | Restrict Google Maps API key | Low (Cloud Console) | Add HTTP referrer restriction to `saves.dylandibona.com/*`. |
-| Apple SIWA domain verification | Low (download file → upload to `public/.well-known/`) | Required for Apple sign-in. |
-| Delete `generate-apple-secret.mjs` | Trivial | Already gitignored, safe to remove from disk. |
 | Recipe-specific JSON-LD parser | Medium | Many recipe sites have schema.org Recipe markup. Already passing JSON-LD to Claude; could parse explicitly for higher reliability and zero AI cost. |
 | Better Instagram extraction | High (Apify or Browserless) | Real captions, comments, full data. Costs money. Necessary for "the workout in the comments" use case. |
 | External recommender attribution UI | Medium | Choose recommender at save time; show their name + color in feed. |
@@ -260,7 +253,7 @@ app/
                              Sets capture_email if absent. Honors ?next= for share-target flow.
   login/
     page.tsx               — Login route
-    login-form.tsx         — Magic link + Apple + Google buttons. Threads ?next= through emailRedirectTo
+    login-form.tsx         — Magic link + Google buttons. Threads ?next= through emailRedirectTo
                              and OAuth redirectTo so post-login the user lands back where they came from.
   map/
     page.tsx               — Map route; calls requireUser (via getHouseholdId redirect)
@@ -341,8 +334,6 @@ supabase/migrations/
 — gitignored, on disk only —
 huashu-design/             — HTML design skill (use for design-direction work; SKILL.md inside)
 taste-skill/               — Anti-slop frontend skill (use for layout/typography/motion polish)
-generate-apple-secret.mjs  — One-time Apple JWT generator (served its purpose; safe to delete)
-AuthKey_*.p8               — Apple SIWA private key (NEVER commit)
 .env.local                 — secrets (NEVER commit)
 ```
 

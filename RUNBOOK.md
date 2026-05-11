@@ -131,7 +131,6 @@ I'll proactively flag these when relevant. Cataloging known gaps now:
 - **PWA share-target limitations on iOS** — even when installed, iOS PWA share targets have quirks (no Live Activities, no widgets, no background notifications). Native is meaningfully better; PWA is workable for v1.
 - **Supabase RLS performance at scale** — RLS policies that join through other tables get slow at >100k rows. Finds' visibility model joins captures→saves→users; will need denormalization at scale.
 - **Stripe webhook idempotency** — double-charging from retries is a thing. Handle webhook IDs as primary keys.
-- **Apple SIWA private email relay** — when users sign in with Apple, Apple gives us a relay email, not their real one. Need to handle this for `capture_email` generation.
 - **iOS share extension memory limits** — 120MB ceiling on share extensions. Heavy enrichment must happen server-side.
 
 ### Product

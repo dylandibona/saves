@@ -46,14 +46,6 @@ export function LoginForm({
     })
   }
 
-  async function handleApple() {
-    const supabase = createClient()
-    await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo: callbackUrl },
-    })
-  }
-
   if (sent) {
     return (
       <div className="space-y-2">
@@ -79,9 +71,6 @@ export function LoginForm({
       <div className="space-y-2">
         <Button variant="outline" className="w-full" onClick={handleGoogle}>
           Continue with Google
-        </Button>
-        <Button variant="outline" className="w-full" onClick={handleApple}>
-          Continue with Apple
         </Button>
       </div>
 
