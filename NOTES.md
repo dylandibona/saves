@@ -6,6 +6,54 @@ Session-by-session record. Short, honest, useful for the next session (mine or D
 
 ---
 
+## 2026-05-11 (evening) — Live capture-build animation, first pass
+
+**What shipped:**
+- `/api/enrich-stream` route handler. Returns `text/event-stream`. Emits phased SSE events: `detected` → `fetching` → `og_parsed` → `classifying` → `classified` → `titled` → `subtitled` → `noted` → structured-field events one-at-a-time (`ingredient`, `instruction`, `exercise`, `place_detail`, `article_detail`, etc.) → `complete`. Pacing constants control rhythm.
+- Refactor: extracted enrichment internals from `lib/actions/enrich-url.ts` Server Action into `lib/enrichment/enrich.ts`. The `fetchAndParse`, `classifyWithClaude`, and `enrichUrl` helpers are now exported and callable directly from route handlers. `lib/actions/enrich-url.ts` becomes a thin Server Action wrapper. `/api/share-save` updated to import from the new module path.
+- `components/add/build-preview.tsx` — new client component. Materializes the save card as SSE events arrive. Framer Motion choreography: hero image fade-in + slight scale (0.48s), category chip bloom with custom cubic-bezier easing (0.42s), staggered list-item reveals for ingredients/instructions/exercises (0.22s each). Thinking-dot pulse during the Claude classifying phase. Layout-animates with `motion.div layout`.
+- `app/add/add-form.tsx` — rewritten. Replaces the Server Action `enrichUrl` call with `fetch('/api/enrich-stream')` + ReadableStream reader + SSE event parser. Maintains `buildState` (drives BuildPreview) and `snapshot` (drives hidden form inputs). AbortController cancels in-flight enrichment when a new URL is typed. The existing form fields (title, category, note, visibility) continue to work the same way; the streaming preview shows above them.
+
+**Done when (from PLAN.md #1 / sub-item 3a):**
+- ✅ Streaming endpoint emits real progress for URL detection, OG fetch, Claude classification
+- ✅ Client reads stream and dispatches state per event
+- ✅ Visual: hero image fade-in, category chip color bloom, structured fields populate one-at-a-time
+- ✅ Pacing constants tunable
+- ✅ Total reveal time: ~3-8 seconds depending on Claude latency
+
+**What's stuck / pending:**
+- v2 improvement: Anthropic streaming API. Currently we make ONE Claude call and emit phases around it (real progress for fetch/classify, choreographed for the field reveals). With Anthropic streaming we'd see title resolve *while* Claude is still thinking — major leap in feel. Saved for a follow-up. ~1-2 days of work.
+- Typewriter sound option (off by default) — Sprint 2.
+- Cancel button if user wants to bail mid-stream — minor add later.
+- Loading skeleton card while waiting for first event — could feel snappier.
+
+**What's next (top of `PLAN.md`):**
+- Capture flow sub-item 3b: PWA Share Target validation on real iOS device.
+- Then 3c: Email-in via Postmark.
+- Then 3d: Apify Instagram integration.
+- Then 3e: Whisper audio transcription.
+
+**Open questions for Dylan:**
+- Try the new build animation on a real save. Tell me what feels off — pacing too fast, too slow? Animation easings? Sound? The structured-field reveal rhythm (currently 70ms between items)?
+- For 3b (PWA Share Target), do you have a moment to test on your phone? Open `https://saves.dylandibona.com` in Safari → Add to Home Screen → share an Instagram post → see if Finds appears in the share sheet. Tell me what you observe.
+
+**Decisions made this session:**
+- One Claude call + choreographed reveals (Path 3 from architecture discussion) rather than multiple smaller calls or streaming JSON parsing. Faster to ship, ~80% as magical. v2 can stream Claude's response if signal warrants.
+- Enrichment module structure: `lib/enrichment/enrich.ts` exports internals + main function (non-Server-Action). `lib/actions/enrich-url.ts` becomes a thin Server Action wrapper. Lets route handlers call helpers directly without going through the Server Action machinery.
+- Build state shape: separate states for the live preview (BuildState) and the final form-submit payload (EnrichedSnapshot). Cleaner than one merged state.
+
+**Subagent runs:** none this session.
+
+**Things worth flagging:**
+- SSE stream uses standard `data: ...\n\n` format. `Content-Type: text/event-stream`. Vercel handles this fine in route handlers.
+- The route is marked `export const dynamic = 'force-dynamic'` — no caching.
+- `X-Accel-Buffering: no` header set to prevent Vercel/nginx from buffering chunks.
+- Client uses `fetch()` + `getReader()` rather than `EventSource` — gives us POST body + AbortController. EventSource is GET-only.
+- AbortController cancels in-flight enrichment when URL changes. Prevents stale streams from racing.
+- The streaming endpoint reuses `fetchAndParse` and `classifyWithClaude` from `lib/enrichment/enrich.ts` — identical results to the one-shot path, just phased.
+
+---
+
 ## 2026-05-11 (afternoon) — Stripe gate architecture, lock open
 
 **What shipped:**

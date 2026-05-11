@@ -17,11 +17,13 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 **Scope (in sub-priority order):**
 
-### 3a. Live capture-build animation — L
-- Convert `enrichUrl` Server Action to a streaming endpoint (Server-Sent Events from `/api/enrich-stream`).
-- AddForm subscribes to the stream, renders state transitions: scaffolding → image fading in → title resolving → category chip animating to its jewel color → ingredients/exercises/hours populating one at a time.
-- Motion: ~3-second total reveal. Each step has its own timing and easing.
-- Sound option (off by default): subtle typewriter tap on text reveal.
+### 3a. Live capture-build animation — L — **DONE (first pass)** ✓
+- ✅ Streaming endpoint `/api/enrich-stream` emits phased SSE events (detected → fetching → og_parsed → classifying → classified → titled → subtitled → noted → structured-fields-one-at-a-time → complete).
+- ✅ AddForm subscribes to the stream, dispatches state transitions via BuildState.
+- ✅ New `BuildPreview` component renders the live-building save card with Framer Motion: hero image fade-in + scale, category chip bloom (custom cubic-bezier), staggered list-item reveals for ingredients/instructions/exercises.
+- ✅ Pacing constants in route file (90ms between phases, 70ms between structured items, 200ms final beat).
+- Refactor: enrichment internals (fetchAndParse, classifyWithClaude) extracted from `lib/actions/enrich-url.ts` Server Action into `lib/enrichment/enrich.ts` so the streaming route can call them in phases. Server Action remains as a thin wrapper.
+- **Next pass:** typewriter sound option (off by default). Anthropic streaming API for in-flight Claude response parsing (title resolves *while* Claude is thinking).
 
 ### 3b. PWA Share Target validation — S
 - Manifest already exists. Install Finds as PWA on real iOS device, test share-from-Instagram flow end-to-end. Document gotchas.
@@ -155,6 +157,7 @@ See `CLAUDE.md` §7 for the full list of nice-to-haves that aren't priority enou
 
 Items that shipped. Newest first.
 
+- **Live capture-build animation (first pass)** — `/api/enrich-stream` SSE endpoint with phased events. `BuildPreview` component materializes the save card live as enrichment streams in. Hero image fade + scale, category chip bloom, staggered list-item reveals for structured fields. Pacing tunable. Enrichment internals extracted from Server Action into `lib/enrichment/enrich.ts` so the route can call them in phases.
 - **Stripe gate architecture (open lock)** — Migration `20260511000001_stripe_billing`. `users.stripe_customer_id` + `subscription_status` + `subscription_plan` + `subscription_current_period_end` columns. `stripe_events` table with event-id PK for idempotent webhooks. `lib/billing/stripe.ts` client (server-only), `lib/billing/can-save.ts` helper that returns `{ok:true}` while `BILLING_ENFORCED !== 'true'`. `/api/stripe-webhook` with signature verification + idempotent processing of `checkout.session.completed` / `customer.subscription.{created,updated,deleted}` / `invoice.payment_failed`. `/api/checkout` initiates Checkout sessions with auto-customer-creation. `/billing` page (URL-only, no nav link) surfaces current plan + tier comparison + gate-open notice. `userCanSave` is the single gate hook called from `addSave` and `/api/share-save`.
 - **Save visibility (Shared / Just me)** — Migration `20260510000001_save_visibility`. Per-save visibility with RLS-enforced privacy. Schema, UI toggle, lock icon, detail page treatment all live.
 - **Share token + `/api/share-save`** — Background save endpoint for iOS Shortcut. Token auth, full enrichment, dedup, capture creation. (Shortcut distribution still in backlog.)

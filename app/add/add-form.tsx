@@ -1,9 +1,9 @@
 'use client'
 
-import { useRef, useState, useCallback, useTransition, useEffect } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { addSave } from './actions'
-import { enrichUrl, type EnrichedUrl } from '@/lib/actions/enrich-url'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/utils/time'
+import { BuildPreview, EMPTY_BUILD_STATE, type BuildState } from '@/components/add/build-preview'
 import type { Database } from '@/lib/types/supabase'
 
 type SaveCategory = Database['public']['Enums']['save_category']
@@ -13,104 +13,233 @@ const categories = Object.keys(CATEGORY_LABELS) as SaveCategory[]
 const field =
   'w-full bg-transparent border-0 border-b border-white/15 focus:border-white/45 focus:outline-none py-3 text-white/90 placeholder:text-white/22 transition-colors duration-200 text-base'
 
-// Source badge copy — no emoji, typographic markers only
-function detectedBadge(enriched: EnrichedUrl): string {
-  const cat = enriched.category ? CATEGORY_LABELS[enriched.category] : null
-  const catPart = cat ? `${cat} · ` : ''
-
-  if (enriched.source === 'google_maps') return `◈ ${catPart}Google Maps`
-  if (enriched.source === 'ai') return `◎ ${catPart}Classified by AI`
-  if (enriched.source === 'og') return `◉ ${catPart}Fetched from page`
-  return `○ ${catPart}Detected`
+// Snapshot of the complete enrichment payload. Drives hidden form fields
+// that get submitted with addSave.
+type EnrichedSnapshot = {
+  title: string | null
+  subtitle: string | null
+  category: SaveCategory | null
+  imageUrl: string | null
+  canonicalUrl: string
+  coords: { lat: number; lng: number } | null
+  note: string | null
+  confidence: 'high' | 'medium' | 'low'
+  alternativeCategories?: SaveCategory[]
+  extracted?: Record<string, unknown>
 }
 
 export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
   const formRef = useRef<HTMLFormElement>(null)
 
-  // Enrichment state
-  const [isPending, startTransition] = useTransition()
-  const [enriched, setEnriched] = useState<EnrichedUrl | null>(null)
+  // ─── Build state (drives the live preview) ─────────────────────────
+  const [buildState, setBuildState] = useState<BuildState>(EMPTY_BUILD_STATE)
 
-  // Track whether the user has manually typed into title / note / url
-  const titleTouched = useRef(false)
-  const noteTouched = useRef(false)
-  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // ─── Enriched snapshot (drives hidden form inputs) ─────────────────
+  const [snapshot, setSnapshot] = useState<EnrichedSnapshot | null>(null)
 
-  // Controlled inputs so we can pre-fill them
+  // ─── Form fields (user-editable) ───────────────────────────────────
   const [url, setUrl] = useState(initialUrl)
   const [title, setTitle] = useState('')
   const [note, setNote] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<SaveCategory>(categories[0])
   const [categoryAuto, setCategoryAuto] = useState(false)
   const [suggestedNote, setSuggestedNote] = useState<string | null>(null)
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null)
   const [visibility, setVisibility] = useState<'household' | 'private'>('household')
 
-  // Whether to show the disambiguation prompt for category
+  // ─── Refs to control re-enrichment + touch tracking ────────────────
+  const titleTouched = useRef(false)
+  const noteTouched = useRef(false)
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const streamControllerRef = useRef<AbortController | null>(null)
+
+  // Show category disambiguation when AI was uncertain
   const showDisambig =
-    enriched &&
-    enriched.alternativeCategories &&
-    enriched.alternativeCategories.length > 0 &&
-    enriched.confidence !== 'high' &&
+    snapshot &&
+    snapshot.alternativeCategories &&
+    snapshot.alternativeCategories.length > 0 &&
+    snapshot.confidence !== 'high' &&
     categoryAuto
 
-  const runEnrichment = useCallback((urlToEnrich: string) => {
-    if (!urlToEnrich.startsWith('http')) return
+  // ─── Stream-based enrichment ───────────────────────────────────────
+  const runEnrichmentStream = useCallback(async (rawUrl: string) => {
+    if (!rawUrl.startsWith('http')) return
 
-    startTransition(async () => {
-      try {
-        const result = await enrichUrl(urlToEnrich)
+    // Cancel any in-flight enrichment
+    streamControllerRef.current?.abort()
+    const controller = new AbortController()
+    streamControllerRef.current = controller
 
-        setEnriched(result)
-        setCoords(result.coords)
+    // Reset build state to starting
+    setBuildState({ ...EMPTY_BUILD_STATE, status: 'starting' })
+    setSnapshot(null)
 
-        // If the URL was a shortened maps link that resolved to a longer URL,
-        // update the input field so the user sees the canonical form.
-        if (result.canonicalUrl && result.canonicalUrl !== urlToEnrich) {
-          setUrl(result.canonicalUrl)
-        }
+    try {
+      const response = await fetch('/api/enrich-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: rawUrl }),
+        signal: controller.signal,
+      })
 
-        // Pre-fill title only if user hasn't typed
-        if (!titleTouched.current && result.title) {
-          setTitle(result.title)
-        }
-
-        // Pre-select category if confidence is high or medium
-        if (result.category && (result.confidence === 'high' || result.confidence === 'medium')) {
-          setSelectedCategory(result.category)
-          setCategoryAuto(true)
-        }
-
-        // Suggested note — ghost text
-        if (!noteTouched.current && result.note) {
-          setSuggestedNote(result.note)
-        }
-      } catch {
-        // Enrichment is non-blocking — fail silently
+      if (!response.ok || !response.body) {
+        throw new Error('Enrichment endpoint returned no body')
       }
-    })
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const events = buffer.split('\n\n')
+        buffer = events.pop() || ''
+
+        for (const eventStr of events) {
+          const trimmed = eventStr.trim()
+          if (!trimmed.startsWith('data: ')) continue
+          try {
+            const event = JSON.parse(trimmed.slice(6))
+            handleStreamEvent(event.phase, event.data)
+          } catch {
+            // bad event, skip
+          }
+        }
+      }
+    } catch (err) {
+      const e = err as Error
+      if (e.name === 'AbortError') return  // expected — new enrichment started
+      console.warn('[enrich-stream] client error', e.message)
+      setBuildState(s => ({ ...s, status: 'error', errorMessage: e.message }))
+    }
   }, [])
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function handleStreamEvent(phase: string, data: any) {
+    setBuildState(s => {
+      switch (phase) {
+        case 'detected':
+          return { ...s, status: 'fetching', urlType: data.urlType }
+        case 'fetching':
+          return { ...s, status: 'fetching' }
+        case 'og_parsed':
+          // If the URL resolved to a longer form (shortened maps), update input.
+          if (data.resolvedUrl && data.resolvedUrl !== url) {
+            setUrl(data.resolvedUrl)
+          }
+          return {
+            ...s,
+            status: 'classifying',
+            siteName: data.siteName,
+            imageUrl: data.imageUrl,
+            // Title from OG is provisional — Claude may improve it
+            title: s.title ?? data.title,
+          }
+        case 'classifying':
+          return { ...s, status: 'classifying' }
+        case 'classified':
+          return {
+            ...s,
+            status: 'building',
+            category: data.category,
+            confidence: data.confidence,
+          }
+        case 'titled':
+          return { ...s, title: data.title }
+        case 'subtitled':
+          return { ...s, subtitle: data.subtitle }
+        case 'noted':
+          return { ...s, note: data.note }
+        case 'ingredient':
+          return { ...s, ingredients: [...s.ingredients, data.ingredient] }
+        case 'instruction':
+          return { ...s, instructions: [...s.instructions, data.instruction] }
+        case 'exercise':
+          return { ...s, exercises: [...s.exercises, data] }
+        case 'recipe_meta':
+          return { ...s, recipeMeta: { ...s.recipeMeta, ...data } }
+        case 'workout_meta':
+          return { ...s, workoutMeta: { ...s.workoutMeta, ...data } }
+        case 'place_detail':
+          return { ...s, placeDetail: { ...s.placeDetail, ...data } }
+        case 'article_detail':
+          return { ...s, articleDetail: { ...s.articleDetail, ...data } }
+        case 'movie_detail':
+          return { ...s, movieDetail: { ...s.movieDetail, ...data } }
+        case 'product_detail':
+          return { ...s, productDetail: { ...s.productDetail, ...data } }
+        case 'media_detail':
+          return { ...s, mediaDetail: { ...s.mediaDetail, ...data } }
+        case 'coords':
+          return { ...s, coords: data }
+        case 'complete':
+          applyComplete(data)
+          return { ...s, status: 'complete' }
+        case 'error':
+          return { ...s, status: 'error', errorMessage: data?.message }
+      }
+      return s
+    })
+  }
+
+  // Final payload → snapshot + form pre-fills
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function applyComplete(data: any) {
+    const snap: EnrichedSnapshot = {
+      title: data.title ?? null,
+      subtitle: data.subtitle ?? null,
+      category: data.category ?? null,
+      imageUrl: data.imageUrl ?? null,
+      canonicalUrl: data.canonicalUrl ?? url,
+      coords: data.coords ?? null,
+      note: data.note ?? null,
+      confidence: data.confidence ?? 'low',
+      alternativeCategories: data.alternativeCategories,
+      extracted: data.extracted,
+    }
+    setSnapshot(snap)
+
+    // Pre-fill title only if user hasn't typed
+    if (!titleTouched.current && snap.title) {
+      setTitle(snap.title)
+    }
+
+    // Auto-select category if confident
+    if (snap.category && (snap.confidence === 'high' || snap.confidence === 'medium')) {
+      setSelectedCategory(snap.category)
+      setCategoryAuto(true)
+    }
+
+    // Suggested note (ghost text)
+    if (!noteTouched.current && snap.note) {
+      setSuggestedNote(snap.note)
+    }
+
+    // Update URL if it resolved to a different canonical form
+    if (snap.canonicalUrl && snap.canonicalUrl !== url) {
+      setUrl(snap.canonicalUrl)
+    }
+  }
 
   const handleUrlChange = useCallback(
     (next: string) => {
       setUrl(next)
       if (debounceTimer.current) clearTimeout(debounceTimer.current)
-      debounceTimer.current = setTimeout(() => runEnrichment(next), 300)
+      debounceTimer.current = setTimeout(() => runEnrichmentStream(next), 300)
     },
-    [runEnrichment]
+    [runEnrichmentStream]
   )
 
-  // If we land on this page with ?url=... (from PWA share / iOS shortcut), enrich immediately
+  // Auto-enrich on mount when ?url=... arrives (PWA share / iOS shortcut)
   useEffect(() => {
     if (initialUrl && initialUrl.startsWith('http')) {
-      runEnrichment(initialUrl)
+      runEnrichmentStream(initialUrl)
     }
     // Only on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  const heroImage = enriched?.imageUrl ?? null
-  const subtitle = enriched?.subtitle ?? null
 
   return (
     <form ref={formRef} action={addSave} className="space-y-8">
@@ -128,52 +257,27 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
           autoFocus
           value={url}
           className={field}
-          onBlur={(e) => runEnrichment(e.target.value)}
+          onBlur={(e) => runEnrichmentStream(e.target.value)}
           onPaste={(e) => {
             const pasted = e.clipboardData.getData('text')
             handleUrlChange(pasted)
           }}
           onChange={(e) => handleUrlChange(e.target.value)}
         />
-        {/* Status row */}
-        {isPending && (
-          <p className="font-mono text-[10px] text-white/30 animate-pulse">Detecting…</p>
-        )}
-        {!isPending && enriched && (
-          <p className="font-mono text-[10px] text-white/40">{detectedBadge(enriched)}</p>
-        )}
       </div>
 
-      {/* Enrichment preview — hero image + subtitle, surfaces what we pulled */}
-      {(heroImage || subtitle) && (
-        <div
-          className="rounded-2xl overflow-hidden"
-          style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}
-        >
-          {heroImage && (
-            <div className="relative aspect-[16/9] overflow-hidden bg-white/[0.03]">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={heroImage} alt="" className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-gradient-to-t from-[oklch(0.10_0.08_262)]/30 to-transparent" />
-            </div>
-          )}
-          {subtitle && (
-            <div className="px-4 py-3">
-              <p className="text-[13px] text-white/55 leading-relaxed line-clamp-3">{subtitle}</p>
-            </div>
-          )}
-        </div>
-      )}
+      {/* Live build preview — materializes as enrichment streams in */}
+      <BuildPreview state={buildState} />
 
       {/* Hidden enrichment fields forwarded to addSave */}
-      <input type="hidden" name="coords" value={coords ? JSON.stringify(coords) : ''} />
-      <input type="hidden" name="subtitle" value={subtitle ?? ''} />
-      <input type="hidden" name="hero_image_url" value={heroImage ?? ''} />
-      <input type="hidden" name="location_address" value={enriched?.subtitle ?? ''} />
+      <input type="hidden" name="coords" value={snapshot?.coords ? JSON.stringify(snapshot.coords) : ''} />
+      <input type="hidden" name="subtitle" value={snapshot?.subtitle ?? ''} />
+      <input type="hidden" name="hero_image_url" value={snapshot?.imageUrl ?? ''} />
+      <input type="hidden" name="location_address" value={snapshot?.subtitle ?? ''} />
       <input
         type="hidden"
         name="extracted"
-        value={enriched?.extracted ? JSON.stringify(enriched.extracted) : ''}
+        value={snapshot?.extracted ? JSON.stringify(snapshot.extracted) : ''}
       />
 
       {/* Title field */}
@@ -205,7 +309,7 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
           )}
         </div>
 
-        {/* Disambiguation prompt — only shows when enrichment was uncertain */}
+        {/* Disambiguation prompt — shows when AI was uncertain */}
         {showDisambig && (
           <div
             className="rounded-xl px-3 py-2.5 space-y-2"
@@ -215,15 +319,13 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
               Not 100% sure — is it a {CATEGORY_LABELS[selectedCategory]}, or one of these?
             </p>
             <div className="flex gap-1.5 flex-wrap">
-              {enriched.alternativeCategories!.map(cat => {
+              {snapshot!.alternativeCategories!.map(cat => {
                 const color = CATEGORY_COLORS[cat] ?? '#888'
                 return (
                   <button
                     type="button"
                     key={cat}
-                    onClick={() => {
-                      setSelectedCategory(cat)
-                    }}
+                    onClick={() => setSelectedCategory(cat)}
                     className="font-mono text-[10px] px-2.5 py-1 rounded-full transition-colors duration-150"
                     style={{
                       background: 'rgba(255,255,255,0.04)',
@@ -253,7 +355,7 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
                   checked={checked}
                   onChange={() => {
                     setSelectedCategory(cat)
-                    setCategoryAuto(false)  // user override; hide disambig
+                    setCategoryAuto(false)
                   }}
                   className="sr-only peer"
                 />

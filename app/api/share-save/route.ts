@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/lib/types/supabase'
-import { enrichUrl } from '@/lib/actions/enrich-url'
+import { enrichUrl } from '@/lib/enrichment/enrich'
 import { userCanSave } from '@/lib/billing/can-save'
 
 type SaveCategory = Database['public']['Enums']['save_category']
