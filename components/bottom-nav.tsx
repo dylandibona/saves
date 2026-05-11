@@ -40,7 +40,7 @@ export function BottomNav({ signOutAction }: { signOutAction: () => Promise<void
         <Link
           href="/"
           className="pointer-events-auto leading-none"
-          style={{ fontSize: '20px' }}
+          style={{ fontSize: '24px' }}
         >
           <AnimatedWordmark />
         </Link>

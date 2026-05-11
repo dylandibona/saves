@@ -36,11 +36,10 @@ export default async function AddPage({
             New
           </p>
           <h1
-            className="font-display mt-1"
+            className="font-display mt-2"
             style={{
-              fontSize: '36px',
+              fontSize: '48px',
               color: 'var(--color-bone)',
-              lineHeight: 1.05,
             }}
           >
             A new <span className="font-serif italic font-normal">find</span>.

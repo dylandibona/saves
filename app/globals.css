@@ -57,8 +57,11 @@
   --radius-xl: 24px;
   --radius-pill: 999px;
 
-  /* ── Fonts ───────────────────────────────────────────────────────── */
-  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  /* ── Fonts — Bricolage Grotesque variable + Fraunces + Space Mono ── */
+  /* `--font-sans` is wired via next/font in layout.tsx with axes
+     [wdth, opsz]. Bind opsz=auto in @layer base so body and display use
+     the right optical size automatically. Heading classes also pin wght
+     and wdth explicitly. */
   --font-mono: var(--font-mono-space), ui-monospace, monospace;
   --font-serif: var(--font-fraunces), "Georgia", ui-serif, serif;
 }
@@ -85,16 +88,27 @@
 @layer base {
   * { border-color: var(--color-hairline); }
 
+  html {
+    font-family: var(--font-sans);
+    /* Bricolage Grotesque has an opsz axis — let the browser pick the
+       right optical size automatically based on font-size. This is the
+       whole reason we picked this face over Geist. */
+    font-optical-sizing: auto;
+    /* Slightly condense at default; display headings will tighten further. */
+    font-variation-settings: 'wdth' 100;
+  }
+
   body {
     background-color: var(--color-bg);
     color: var(--color-paper);
+    font-size: 15px;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     /* Ensure nothing peeks behind the bottom tab bar */
     padding-bottom: env(safe-area-inset-bottom);
   }
-
-  html { font-family: var(--font-sans); }
 
   /* Fraunces — accent only. One italic word per surface, ever. */
   .font-serif {
@@ -108,12 +122,30 @@
     font-variation-settings: 'opsz' 144, 'wght' 500, 'SOFT' 50;
   }
 
-  /* Display heading — heavy sans for h1/h2. */
+  /* Display heading — Bricolage variable at heavy weight, slightly
+     condensed (wdth 88), tighter tracking. The opsz axis kicks the
+     letterforms into editorial-display mode automatically at this size. */
   .font-display {
     font-family: var(--font-sans);
     font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.05;
+    font-variation-settings: 'wght' 700, 'wdth' 88, 'opsz' 96;
+    letter-spacing: -0.035em;
+    line-height: 1.02;
+  }
+
+  /* Semibold UI label — buttons, section heads, identity pills, etc. */
+  .font-semibold-ui {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-variation-settings: 'wght' 600, 'wdth' 100;
+    letter-spacing: -0.01em;
+  }
+
+  /* Body weight, slightly tightened at smaller sizes via opsz auto */
+  .font-body {
+    font-family: var(--font-sans);
+    font-weight: 400;
+    font-variation-settings: 'wght' 400, 'wdth' 100;
   }
 }
 

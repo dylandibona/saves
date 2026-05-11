@@ -1,10 +1,24 @@
 import type { Metadata } from "next";
-import { Geist, Fraunces, Space_Mono, VT323, Pixelify_Sans, Silkscreen } from "next/font/google";
+import { Bricolage_Grotesque, Fraunces, Space_Mono, VT323, Pixelify_Sans, Silkscreen } from "next/font/google";
 import "./globals.css";
 
-const geist = Geist({
-  variable: "--font-geist",
+/**
+ * Type system — see docs/design-direction.md §3 and research note in
+ * NOTES.md (2026-05-11 typography pass).
+ *
+ * Primary sans: Bricolage Grotesque. Variable font with three axes:
+ *   - wght (200-800)
+ *   - wdth (75-100) — used at display sizes for condensed editorial feel
+ *   - opsz (12-96)  — automatic via font-optical-sizing in CSS
+ *
+ * This face changes personality between body and display sizes the way
+ * Geist (the previous sans) couldn't. We bind opsz=auto in CSS, and
+ * explicit wght+wdth on display headings.
+ */
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-sans",
   subsets: ["latin"],
+  axes: ["wdth", "opsz"],
 });
 
 // Fraunces — accent only. One deliberate italic word per surface.
@@ -23,7 +37,6 @@ const spaceMono = Space_Mono({
 });
 
 // Pixel fonts — used ONLY in the cold-launch wordmark animation.
-// See components/animated-wordmark.tsx for the cycle sequence.
 const vt323 = VT323({
   variable: "--font-pixel-a",
   subsets: ["latin"],
@@ -68,7 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body
         className={`
-          ${geist.variable}
+          ${bricolage.variable}
           ${fraunces.variable}
           ${spaceMono.variable}
           ${vt323.variable}

@@ -112,11 +112,10 @@ export function FeedClient({
           Library
         </p>
         <h1
-          className="font-display"
+          className="font-display mt-2"
           style={{
-            fontSize: '36px',
+            fontSize: '48px',
             color: 'var(--color-bone)',
-            lineHeight: 1.05,
           }}
         >
           Your <span className="font-serif italic font-normal">finds</span>
