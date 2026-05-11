@@ -53,7 +53,7 @@ Living docs, in order of how often they update:
 
 ## 3. Subagent team
 
-Saves' subagent specialists. Each one is a research/critique/execution agent with a defined remit. I dispatch them when work needs structured isolation — they don't pollute the main session context, and they bring back findings.
+Finds' subagent specialists. Each one is a research/critique/execution agent with a defined remit. I dispatch them when work needs structured isolation — they don't pollute the main session context, and they bring back findings.
 
 | Agent | When to use | Scope |
 |---|---|---|
@@ -129,7 +129,7 @@ I'll proactively flag these when relevant. Cataloging known gaps now:
 ### Technical
 - **Pocket migration urgency window** — Pocket shut down July 2025. The "I lost my saves" search-intent peak was the second half of 2025. We're now in May 2026 — still a real opportunity but the wave is past. Plan accordingly.
 - **PWA share-target limitations on iOS** — even when installed, iOS PWA share targets have quirks (no Live Activities, no widgets, no background notifications). Native is meaningfully better; PWA is workable for v1.
-- **Supabase RLS performance at scale** — RLS policies that join through other tables get slow at >100k rows. Saves' visibility model joins captures→saves→users; will need denormalization at scale.
+- **Supabase RLS performance at scale** — RLS policies that join through other tables get slow at >100k rows. Finds' visibility model joins captures→saves→users; will need denormalization at scale.
 - **Stripe webhook idempotency** — double-charging from retries is a thing. Handle webhook IDs as primary keys.
 - **Apple SIWA private email relay** — when users sign in with Apple, Apple gives us a relay email, not their real one. Need to handle this for `capture_email` generation.
 - **iOS share extension memory limits** — 120MB ceiling on share extensions. Heavy enrichment must happen server-side.
@@ -161,7 +161,7 @@ I'll proactively flag these when relevant. Cataloging known gaps now:
 
 In order:
 
-1. **Pick the name (Kept or commit to Saves).** Run TESS + domain checks within an hour. Update repo, domain, docs, microcopy.
+1. **Pick the name (Kept or commit to Finds).** Run TESS + domain checks within an hour. Update repo, domain, docs, microcopy.
 2. **Rewrite STRATEGY.md** to match the actual project shape. Retire REQUIREMENTS.md to `docs/archive/`.
 3. **Create PLAN.md** — the prioritized working doc. First entries: Stripe gate-architecture (open lock), capture flow rebuild at full bar, NOTES.md template, deploy hygiene (CI typecheck pre-merge).
 

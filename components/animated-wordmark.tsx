@@ -10,7 +10,7 @@ const FONTS = [
   { family: 'var(--font-pixel-c)', size: '22px', letterSpacing: '0.06em' },   // Silkscreen — sharp, thicker stroke
 ] as const
 
-const LETTERS = ['S', 'a', 'v', 'e', 's'] as const
+const LETTERS = ['F', 'i', 'n', 'd', 's'] as const
 
 // Each letter gets an independent timer offset so changes feel organic
 const LETTER_CONFIG = [
@@ -71,7 +71,13 @@ function AnimLetter({
         transition: 'opacity 0.13s ease-in-out',
         display: 'inline-block',
         // Fixed width so layout doesn't shift as fonts change
-        minWidth: char === 'S' ? '0.65em' : char === 'a' ? '0.62em' : char === 'v' ? '0.62em' : char === 'e' ? '0.58em' : '0.50em',
+        minWidth:
+          char === 'F' ? '0.58em' :
+          char === 'i' ? '0.30em' :
+          char === 'n' ? '0.62em' :
+          char === 'd' ? '0.62em' :
+          char === 's' ? '0.50em' :
+          '0.55em',
         textAlign: 'center',
         lineHeight: 1,
         verticalAlign: 'baseline',

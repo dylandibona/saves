@@ -1,8 +1,8 @@
-# Strategy — reset of "Saves"
+# Strategy — reset of "Finds"
 
 **Status:** Strategic plan as of 2026-05-10. Reset moment after the working private build (see `CLAUDE.md`). Authored by Claude in collaboration with Dylan.
 
-> **Premise:** What we have is a competent personal tool. What we want is a business. This document is the bridge — what Saves *should* be, evaluated independent of what it currently is.
+> **Premise:** What we have is a competent personal tool. What we want is a business. This document is the bridge — what Finds *should* be, evaluated independent of what it currently is.
 
 ---
 
@@ -10,7 +10,7 @@
 
 1. **Position:** *"Mymind for couples — multi-category, beautifully kept, AI-organized."* The wedge nobody owns.
 2. **Audience:** Couples and small households (2–4 people) who are aesthetically discerning, save 50+ things/year, and already share via DMs. Not "everyone." Not solo bookmark power-users (Raindrop owns that). Not single-category obsessives (Letterboxd/Recime own those).
-3. **Brand:** Rename. "Saves" is a feature. The product needs a one-syllable noun-name that connotes *a kept place, two people, quietly tended.* Top candidate: **Cairn**.
+3. **Brand:** Rename. "Finds" is a feature. The product needs a one-syllable noun-name that connotes *a kept place, two people, quietly tended.* Top candidate: **Cairn**.
 4. **Pricing:** $8/mo personal, $12/mo household, $199 lifetime founding-member capped at 500. Premium tier, not utility tier.
 5. **Product reset:** Five signature flows — Capture, Library, Tonight, Trip, Cellar — replace the generic feed-of-cards mental model. Each one has at least one moment of designed delight.
 6. **Build target:** Public-launchable v1 in **4–5 months of focused work**. Native iOS app, real onboarding, real brand, all five flows shipped. No "just enough." No "MVP-but-still."
@@ -24,7 +24,7 @@ The private build works. It has correct primitives — captures, household, reco
 
 What it lacks is the difference between a tool and a product:
 
-- **No identity.** "Saves" reads as a feature name. The brand is an aesthetic, not a story.
+- **No identity.** "Finds" reads as a feature name. The brand is an aesthetic, not a story.
 - **No moment of delight that can't be replicated by Recime in two weekends.** Today's differentiator is "AI extraction across categories" — real, but copyable.
 - **No surfacing logic.** A library that shows everything chronologically is closer to a database than to a kept place.
 - **No onboarding.** New users land in an empty feed with no story.
@@ -62,7 +62,7 @@ Three moves this sentence makes that no competitor makes:
 
 State this so the design stays disciplined:
 
-- **Solo aesthetes** (Mymind has them). Saves works for them but doesn't lead with single-player.
+- **Solo aesthetes** (Mymind has them). Finds works for them but doesn't lead with single-player.
 - **Bookmark power-users** (Raindrop has them). Folder hierarchies and granular tagging aren't our game.
 - **Discovery-seekers** (Pinterest has them). We don't surface other people's saves; we surface yours.
 - **Productivity stackers** (Notion has them). We're not building blocks for people who want to compose their own system.
@@ -81,10 +81,10 @@ State this so the design stays disciplined:
 
 ### Why rename
 
-"Saves" has three structural problems:
-- **Feature, not product.** "Save to Saves" sounds like a Notion clipper feature.
+"Finds" has three structural problems:
+- **Feature, not product.** "Save to Finds" sounds like a Notion clipper feature.
 - **Search-invisible.** App Store search for "saves" returns gambling apps and Pokémon save guides.
-- **Nothing to fall in love with.** Bear, Mymind, Are.na, Things, Beli all feel like *places.* "Saves" feels like a verb.
+- **Nothing to fall in love with.** Bear, Mymind, Are.na, Things, Beli all feel like *places.* "Finds" feels like a verb.
 
 The pattern that works in this category: one-or-two-syllable common nouns connoting *a kept thing, quietly, well.* Bear, Things, Mem, Arc, Otto, Beli, Reflect, Granola, Vellum.
 
@@ -245,8 +245,8 @@ This is the feature most likely to drive premium upgrades. The household pitch i
 The save library accumulates entropy. Without a cellar, every library becomes a graveyard. Mymind avoids this with sheer aesthetic; we can do better with explicit decay-aware UX.
 
 **Logic:**
-- Saves never auto-delete.
-- Saves older than ~6 months with zero engagement get a gentle "Cellar" status — visible in a separate view, not in the main library.
+- Finds never auto-delete.
+- Finds older than ~6 months with zero engagement get a gentle "Cellar" status — visible in a separate view, not in the main library.
 - Once a quarter, a "Cellar visit" surface offers ~5 saves: "Still want to read this? Still want to try this place? Or release it?" Three taps to revisit, archive, or delete.
 - Deletion is always two-step (confirmation modal, already built).
 
@@ -299,9 +299,9 @@ Android can wait until iOS validates the model.
 ### Surfacing engine ("Tonight," geo resurfacing)
 
 A daily cron that, per household, computes:
-- Saves matching today's time-of-day + season window.
-- Saves within 500m of last known location.
-- Saves that haven't been viewed in 90+ days, weighted by how often they're searched.
+- Finds matching today's time-of-day + season window.
+- Finds within 500m of last known location.
+- Finds that haven't been viewed in 90+ days, weighted by how often they're searched.
 
 Stores ~5 candidates in a `surfaces_today` table. Home view reads from there, not from full library.
 
@@ -343,7 +343,7 @@ Stripe via the Supabase auth integration. Three plans (Free, Personal, Household
 
 ### Why these numbers
 
-- **$8/$12 anchors premium.** Mymind ($7–13), Reflect ($10), Mem ($10) all live here. Recime/Raindrop ($5/$3) are the utility tier; Saves is not a utility.
+- **$8/$12 anchors premium.** Mymind ($7–13), Reflect ($10), Mem ($10) all live here. Recime/Raindrop ($5/$3) are the utility tier; Finds is not a utility.
 - **Annual discount = 25%** is the standard pull.
 - **Household at 1.5× personal** is below industry norm (Apple One is ~1.5×, 1Password Families is ~1.7×) — pricing aggressively because the household pitch IS the product.
 - **$199 lifetime founding** = 16 months of household at full price. Believable to early adopters, generates ~$100k of cash if all 500 sell.
@@ -376,7 +376,7 @@ The unit economics are fine because the AI cost is bounded by user behavior. Peo
 | **Year 1** | 2,000 paid | ~$24k MRR | $288k |
 | **Year 2** | 8,000 paid | ~$96k MRR | $1.15M |
 
-These are conservative — Mymind has ~30k paid in 5 years; Are.na has ~18k paid in 12 years. Saves' household pitch is more mainstream than either.
+These are conservative — Mymind has ~30k paid in 5 years; Are.na has ~18k paid in 12 years. Finds' household pitch is more mainstream than either.
 
 ### Distribution
 
@@ -394,7 +394,7 @@ What we don't do: paid Facebook/Instagram ads, performance marketing tracked by 
 
 ### Side-by-side
 
-| Dimension | Mymind | Recime | Raindrop | Notion | **Saves** |
+| Dimension | Mymind | Recime | Raindrop | Notion | **Finds** |
 |---|---|---|---|---|---|
 | Multi-category | ✓ | ✗ (recipes) | ✓ | ✓ | ✓ |
 | AI extraction | ✓ | ✓ | ✗ | ✗ | ✓ |
@@ -463,7 +463,7 @@ Build the actual product differentiation.
 - **Trip** — destination mode. Map-anchored, day planner, shared decisions UI.
 - **Cellar** — old-save resurfacing. Quarterly visit surface.
 
-Output: the product Saves *is*, fully realized.
+Output: the product Finds *is*, fully realized.
 
 ### Phase 3 — Native iOS app (8–10 weeks)
 
@@ -485,7 +485,7 @@ Output: App Store submission.
 - Stripe billing live with all three tiers.
 - 500 lifetime members cap visible on landing.
 
-Output: Saves is in the market.
+Output: Finds is in the market.
 
 ### Phase 5 — Iterate on signal (ongoing)
 

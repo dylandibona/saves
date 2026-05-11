@@ -360,7 +360,7 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
           type="submit"
           className="chip chip-off font-mono text-[12px] tracking-wider px-10 py-3 rounded-full hover:!text-white active:scale-95 transition-transform"
         >
-          Save It
+          Keep
         </button>
       </div>
 

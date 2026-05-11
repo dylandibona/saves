@@ -201,7 +201,7 @@ If trimming: which can wait, and what's lost by waiting?
 
 ### E4. Audio capture / voice capture
 
-"Hey Saves, save that podcast Marco mentioned" — is this v1 or later? It's substantial work (Whisper integration + intent parsing + on-device speech UI).
+"Hey Finds, save that podcast Marco mentioned" — is this v1 or later? It's substantial work (Whisper integration + intent parsing + on-device speech UI).
 
 - [ ] v1.
 - [x] v2 / post-launch.
@@ -244,7 +244,7 @@ What's your final-or-leaning name? (Run domain check + USPTO search before commi
 - [ ] Atlas
 - [ ] Vellum
 - [ ] Other: *(write it)*
-- [ ] Stay with "Saves" (commit to making a generic name work)
+- [ ] Stay with "Finds" (commit to making a generic name work)
 
 > I'll need to update our current project to Trove (and we may need to find a clever spelling for copyright reasons but good for now as a decision) trove.dylandibona.com for now.
 

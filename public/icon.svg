@@ -19,9 +19,11 @@
   <!-- Jewel orb echoes -->
   <circle cx="120" cy="140" r="180" fill="url(#orb1)"/>
   <circle cx="400" cy="380" r="160" fill="url(#orb2)"/>
-  <!-- Block S — noun-s-block-1114651, scaled into 512px viewport, centered -->
-  <!-- Original path is on a 1200pt canvas; scale to ~280px and translate to center (~116, 116) -->
+  <!-- Block F — geometric mark for Finds. Same 1200-unit grid as previous icon, centered. -->
   <g transform="translate(116 116) scale(0.234)">
-    <path d="m480 600h-240v240h480v-240h240v-240h-480z" fill="rgba(255,255,255,0.95)"/>
+    <path
+      d="M300 240 H900 V400 H460 V540 H800 V680 H460 V960 H300 Z"
+      fill="rgba(255,255,255,0.95)"
+    />
   </g>
 </svg>

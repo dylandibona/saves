@@ -42,9 +42,11 @@ const silkscreen = Silkscreen({
 });
 
 export const metadata: Metadata = {
+  // Domain swap to finds.dylandibona.com is pending; keep the current
+  // production hostname here until DNS + Supabase + OAuth are updated.
   metadataBase: new URL("https://saves.dylandibona.com"),
-  title: { default: "Saves", template: "%s · Saves" },
-  description: "Your personal recommendation library.",
+  title: { default: "Finds", template: "%s · Finds" },
+  description: "The things you find, kept.",
   manifest: "/manifest.json",
   icons: {
     icon: [
@@ -55,7 +57,7 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    title: "Saves",
+    title: "Finds",
     statusBarStyle: "black-translucent",
   },
 };

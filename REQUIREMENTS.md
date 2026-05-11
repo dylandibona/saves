@@ -24,7 +24,7 @@ Common pattern:
 - **Aesthetic point of view.** Not "nice" — a specific opinion.
 - **Surprising depth in one direction.** Linear goes deep on keyboard. Things goes deep on time. Arc goes deep on browsing. Pick a depth, own it.
 
-For Saves, two candidates for the signature moment:
+For Finds, two candidates for the signature moment:
 
 1. **Capture-build animation** — the moment of capture is the first impression. Paste a URL, watch the AI extract the save in real-time in front of you. The signature for *new users.*
 2. **Tonight's offering** — daily-changing single-thing-that-matters. The signature for *returning users.*
@@ -45,7 +45,7 @@ Every one of these is a designed moment, not a feature. Twenty-three things to m
 
 3. **"Already saved" gentle overlap.** Save the same thing twice → the app shows the existing save with "you already have this — save again to add a note?" Not a modal. Just the existing card surfacing.
 
-4. **Voice capture** (later phase). "Hey Saves, save that podcast Marco mentioned at dinner." Audio → transcription → smart context resolution → save with a contextual note.
+4. **Voice capture** (later phase). "Hey Finds, save that podcast Marco mentioned at dinner." Audio → transcription → smart context resolution → save with a contextual note.
 
 5. **Email-in confirmation.** Forward any link to your `capture@cairn.so` (or wherever) → email reply confirms with a beautiful card preview, no app needed. The capture surface that works on a 9-year-old browser.
 
@@ -89,7 +89,7 @@ Every one of these is a designed moment, not a feature. Twenty-three things to m
 
 21. **Place → nearby check.** Tap a place save → "Open in Maps" with mode selected based on time of day (transit during commute, walking on weekends).
 
-22. **Article → read on flight.** Saves marked for "later reading" can be downloaded as a bundle for offline.
+22. **Article → read on flight.** Finds marked for "later reading" can be downloaded as a bundle for offline.
 
 ### Sharing moments
 
@@ -308,7 +308,7 @@ Each flow gets ~2–3 weeks of dedicated design + engineering. Order matters: Ca
 - **Cellar (2 weeks)** — quarterly visit surface, archive flow, "still want this?" prompt design.
 - **Polish + integration (3 weeks)** — recipe-to-Reminders, workout-to-Health, single-save public share-out URL, app-wide motion pass.
 
-Output: the product Saves *is*.
+Output: the product Finds *is*.
 
 ### Phase 3 — Native iOS (12–16 weeks)
 
@@ -373,7 +373,7 @@ To hit "shockingly fun":
 
 This isn't a "few weeks" project. It's the multi-month build of a real product that has a chance of mattering. The reason every detail has to be considered is that the apps that clear this bar — Linear, Things, Mymind, Bear, Arc — *all* spent a year-plus on each of their first releases with small focused teams.
 
-The Saves we have today is a strong proof of concept. The Saves you're describing is a different category of artifact.
+The Finds we have today is a strong proof of concept. The Finds you're describing is a different category of artifact.
 
 ---
 

@@ -323,7 +323,7 @@ export function MapClient({ saves }: { saves: MapSave[] }) {
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
               <circle cx="12" cy="10" r="3"/>
             </svg>
-            <p className="font-serif text-lg text-white/75">No places saved yet</p>
+            <p className="font-serif text-lg text-white/75">No places yet</p>
             <p className="font-mono text-[11px] text-white/32">Paste a Google Maps link when adding a save</p>
             <a href="/add" className="inline-block mt-1 font-mono text-[11px] text-white/45 hover:text-white/75 transition-colors underline underline-offset-4 decoration-white/18">
               Add a place

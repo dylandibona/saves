@@ -156,12 +156,12 @@ export function FeedClient({
       {filtered.length === 0 ? (
         <div className="py-20 text-center">
           <p className="text-white/30 text-sm font-mono">
-            {query || active ? 'Nothing matches.' : 'Nothing saved yet.'}
+            {query || active ? 'Nothing matches.' : 'No finds yet.'}
           </p>
           {!query && !active && (
             <a href="/add"
               className="mt-3 inline-block text-sm text-white/45 hover:text-white/80 transition-colors underline underline-offset-4 decoration-white/20">
-              Add your first save →
+              Add your first find →
             </a>
           )}
         </div>

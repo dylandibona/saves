@@ -8,11 +8,11 @@ Guidance for Claude Code when working in this repository. **Keep this file curre
 
 ## 1. What this is
 
-**Saves** is a personal recommendation library. The destination, not a bookmark. The save itself contains enough context (ingredients, sets, hours, summary, hero image) that the user never has to click through to the source again.
+**Finds** is a personal recommendation library. The destination, not a bookmark. The save itself contains enough context (ingredients, sets, hours, summary, hero image) that the user never has to click through to the source again.
 
-**Origin story:** Dylan and Keelin (a couple) share restaurants, recipes, workouts, TV shows, movies, and places via Instagram DMs. Those recommendations get buried and lost. Saves captures, enriches, and surfaces them in a calm, searchable library shared between them.
+**Origin story:** Dylan and Keelin (a couple) share restaurants, recipes, workouts, TV shows, movies, and places via Instagram DMs. Those recommendations get buried and lost. Finds captures, enriches, and surfaces them in a calm, searchable library shared between them.
 
-**Reference point:** [Recime](https://www.recime.app/), but for *every* category — not just recipes. Recime proves the "share-from-anywhere → AI-extracts-structure → beautiful library" format. Saves widens the thesis to all save types: recipes, restaurants, places, hotels, shows, articles, workouts, products, podcasts, music, books.
+**Reference point:** [Recime](https://www.recime.app/), but for *every* category — not just recipes. Recime proves the "share-from-anywhere → AI-extracts-structure → beautiful library" format. Finds widens the thesis to all find types: recipes, restaurants, places, hotels, shows, articles, workouts, products, podcasts, music, books.
 
 **Design principle:** a beautifully kept notebook, not a feed. No streaks, no engagement nudges, no gamification. The app should feel like a physical object — jewel-toned, dimensional, tactile. 80% mobile usage.
 
@@ -30,9 +30,9 @@ Guidance for Claude Code when working in this repository. **Keep this file curre
 | Repo | `https://github.com/dylandibona/saves` | dylandibona personal account; commits authored as `Dylan DiBona <dylan@dylandibona.com>` |
 | Vercel project | Personal "dbone" account, project name `saves` | Hobby tier, "Dylan's projects" team |
 | Supabase project | ref `lqmjglpzrfcpnpshbjwo` | Account: dylandibona (NOT Natrx) |
-| Google OAuth | Cloud Console "Saves" project | Authorized origins: `saves.dylandibona.com`. Authorized redirect URI: `https://lqmjglpzrfcpnpshbjwo.supabase.co/auth/v1/callback` |
+| Google OAuth | Cloud Console project (legacy name "Saves") | Authorized origins: `saves.dylandibona.com` (will need `finds.dylandibona.com` once domain swaps). Authorized redirect URI: `https://lqmjglpzrfcpnpshbjwo.supabase.co/auth/v1/callback` |
 | Apple SIWA | Services ID `app.saves.siwa` | Domain `saves.dylandibona.com` registered. Domain verification file pending. |
-| Google Maps API | Cloud Console "Saves" project | Maps JavaScript API enabled. Currently unrestricted — needs HTTP referrer restriction. |
+| Google Maps API | Cloud Console project (legacy name "Saves") | Maps JavaScript API enabled. Currently unrestricted — needs HTTP referrer restriction. |
 
 ---
 
@@ -83,7 +83,7 @@ End-to-end tested in production by Dylan unless noted otherwise:
 | **Save visibility toggle** | ✅ Working | Shared (default) vs Just me. RLS enforced at DB level — partner literally can't see private saves. Lock icon shown in feed and detail. |
 | **Delete save** | ✅ Working | Confirmation modal (Framer Motion). Soft-delete via `status='archived'` so dedup logic doesn't resurrect on re-add. |
 | **DD/KL identity pills** | ✅ Working | Initials chip in user color on feed + detail. Mapping in `lib/utils/identity.ts` — explicit `dylan→DD, keelin→KL` overrides; falls back to email local part. |
-| **Animated wordmark** | ✅ Working | "Saves" letter-by-letter cycles between Pixelify Sans, VT323, Silkscreen on staggered timers. |
+| **Animated wordmark** | ✅ Working | "Finds" letter-by-letter cycles between Pixelify Sans, VT323, Silkscreen on staggered timers. |
 | **Settings page at `/settings`** | ✅ Working | Token generate/show/copy/regenerate. Step-by-step Shortcut config (instructions need work — see backlog). |
 | **`POST /api/share-save`** | ✅ Working server-side | Token auth, runs enrichment, dedups by canonical_url, creates save + capture. Logs to Vercel runtime. Not yet integrated end-to-end with a working Shortcut. |
 | **PWA manifest + share_target** | ⚠️ Manifest configured, not yet validated end-to-end | When installed via Safari "Add to Home Screen", iOS share sheet should route shares to the PWA app. Needs install + test. |
@@ -98,7 +98,7 @@ End-to-end tested in production by Dylan unless noted otherwise:
 |---|---|---|
 | **iOS Shortcut config** | Apple's Shortcuts UI varies by iOS version; the manual setup walkthrough on `/settings` doesn't match what users actually see. User got stuck mid-config. | This was supposed to be the "stays in Instagram" path. Replacement: distribute a pre-built `.shortcut` via iCloud share link (one-tap install), or rely on PWA Share Target instead. |
 | **PWA Share Target** | Code is in place (`public/manifest.json` + `app/share/route.ts`) but never validated end-to-end on a real device. | Primary path forward for "share from Instagram" UX — needs installation + test. |
-| **Existing pre-extraction saves** | Saves created before the extraction feature have empty `canonical_data.extracted`. No backfill or re-process action exists. | First few saves Dylan made look threadbare on the detail page. Workaround: delete + re-share. |
+| **Existing pre-extraction finds** | Finds created before the extraction feature have empty `canonical_data.extracted`. No backfill or re-process action exists. | First few finds Dylan made look threadbare on the detail page. Workaround: delete + re-share. |
 | **Keelin onboarding** | She hasn't signed up yet. Needs to go through Google/magic-link flow. Her self-recommender will be created by the trigger but `display_name` won't be set; identity helper has hardcoded `keelin→KL` mapping that depends on her email containing "keelin". | Single-user app right now. |
 | **Apple SIWA** | Domain verification file (`apple-developer-domain-association.txt`) needs to be served at `/.well-known/`. Apple will reject sign-ins until done. | Anyone trying Apple sign-in fails silently or sees Apple's error page. |
 | **Google Maps API key** | Currently unrestricted. Anyone can use it from any domain by reading the bundle. | Security/billing risk — should restrict to `saves.dylandibona.com/*` (and `localhost:3000/*` for dev). |

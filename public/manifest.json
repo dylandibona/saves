@@ -1,7 +1,7 @@
 {
-  "name": "Saves",
-  "short_name": "Saves",
-  "description": "Your personal recommendation library",
+  "name": "Finds",
+  "short_name": "Finds",
+  "description": "The things you find, kept.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",

@@ -36,8 +36,8 @@ export default async function SettingsPage() {
           <header className="space-y-1.5">
             <p className="font-mono text-[10px] tracking-widest text-white/30">iOS Shortcut</p>
             <p className="text-[13px] text-white/55 leading-relaxed max-w-prose">
-              Save from any app — Instagram, Safari, Mail — without leaving it.
-              The Shortcut posts the URL to Saves in the background and shows
+              Send a find from any app — Instagram, Safari, Mail — without leaving it.
+              The Shortcut posts the URL to Finds in the background and shows
               a brief confirmation notification.
             </p>
           </header>
@@ -45,7 +45,7 @@ export default async function SettingsPage() {
           <ol className="space-y-3 text-[13px] text-white/65 leading-relaxed">
             <li className="flex gap-3">
               <span className="font-mono text-[10px] text-white/30 mt-0.5">1</span>
-              <span>Open <strong className="text-white/85">Shortcuts</strong> app, tap <strong className="text-white/85">+</strong>, name it <em>Save To Saves</em>.</span>
+              <span>Open <strong className="text-white/85">Shortcuts</strong> app, tap <strong className="text-white/85">+</strong>, name it <em>Send to Finds</em>.</span>
             </li>
             <li className="flex gap-3">
               <span className="font-mono text-[10px] text-white/30 mt-0.5">2</span>
@@ -69,11 +69,11 @@ export default async function SettingsPage() {
             </li>
             <li className="flex gap-3">
               <span className="font-mono text-[10px] text-white/30 mt-0.5">5</span>
-              <span>Add action: <strong className="text-white/85">Show Notification</strong>. Set the body to <em>Saved to Saves</em>.</span>
+              <span>Add action: <strong className="text-white/85">Show Notification</strong>. Set the body to <em>Saved to Finds</em>.</span>
             </li>
             <li className="flex gap-3">
               <span className="font-mono text-[10px] text-white/30 mt-0.5">6</span>
-              <span>Done. Test from Safari → tap share → Save To Saves → notification fires, you stay in the app you came from.</span>
+              <span>Done. Test from Safari → tap share → Send to Finds → notification fires, you stay in the app you came from.</span>
             </li>
           </ol>
 

@@ -5,7 +5,7 @@ import type { NextRequest } from 'next/server'
  * PWA Share Target endpoint.
  *
  * When the user shares from another app (Instagram, Safari, etc) and picks
- * "Saves" from the share sheet, the OS sends the shared content here as a
+ * "Finds" from the share sheet, the OS sends the shared content here as a
  * GET request with `title`, `text`, and/or `url` query params.
  *
  * Different apps put the URL in different fields:
