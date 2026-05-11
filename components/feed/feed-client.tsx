@@ -171,7 +171,7 @@ export function FeedClient({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.20, ease: 'easeOut' }}
-          className="divide-y divide-white/[0.06]"
+          className="space-y-3"
         >
           {filtered.map((save, i) => (
             <motion.div

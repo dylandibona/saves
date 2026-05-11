@@ -27,20 +27,30 @@
 }
 
 :root {
-  /* Deep sapphire — never black, always jewel */
-  --background: oklch(0.10 0.08 262);
-  --foreground: oklch(0.93 0.008 80);
-  --primary: oklch(0.93 0.008 80);
-  --primary-foreground: oklch(0.10 0.08 262);
-  --muted: oklch(0.18 0.06 262);
-  --muted-foreground: oklch(0.55 0.04 262);
-  --secondary: oklch(0.18 0.06 262);
-  --secondary-foreground: oklch(0.93 0.008 80);
-  --border: oklch(0.26 0.06 262);
-  --input: oklch(0.26 0.06 262);
-  --ring: oklch(0.50 0.08 262);
-  --destructive: oklch(0.60 0.22 20);
-  --radius: 0.5rem;
+  /* Near-pure dark — confident, utility-first, not decorative.
+     Tiny hint of blue (chroma ~0.01) keeps it from feeling flat black,
+     but reads as gray-black, not jewel sapphire. */
+  --background: oklch(0.10 0.005 240);
+  --foreground: oklch(0.96 0.005 80);
+  --primary: oklch(0.96 0.005 80);
+  --primary-foreground: oklch(0.10 0.005 240);
+
+  /* Elevated card surface — slightly lighter than base */
+  --card: oklch(0.14 0.006 240);
+  --card-foreground: oklch(0.96 0.005 80);
+
+  --muted: oklch(0.14 0.006 240);
+  --muted-foreground: oklch(0.68 0.01 240);
+
+  --secondary: oklch(0.14 0.006 240);
+  --secondary-foreground: oklch(0.96 0.005 80);
+
+  --border: oklch(0.22 0.008 240);
+  --input: oklch(0.18 0.008 240);
+  --ring: oklch(0.50 0.05 240);
+  --destructive: oklch(0.62 0.22 20);
+
+  --radius: 0.75rem;
 }
 
 @layer base {
@@ -52,49 +62,24 @@
   }
   html { @apply font-sans; }
 
-  /* Fraunces optical-size: large titles get max contrast */
+  /* Fraunces — now ACCENT only. Used for specific emotional moments
+     (one or two per screen max), not as the default heading face. */
   .font-serif {
-    font-variation-settings: 'opsz' 144, 'wght' 300;
+    font-variation-settings: 'opsz' 144, 'wght' 400;
   }
-  /* Wordmark: slightly softer */
   .font-serif-display {
     font-family: var(--font-serif);
     font-style: italic;
-    font-variation-settings: 'opsz' 144, 'wght' 400, 'SOFT' 20;
+    font-variation-settings: 'opsz' 144, 'wght' 500, 'SOFT' 20;
   }
-}
 
-/* ── Gradient orb animations ───────────────────────────────────── */
-.gradient-orb {
-  position: fixed;
-  border-radius: 50%;
-  pointer-events: none;
-  will-change: transform;
-  z-index: 0;
-}
-
-/* Orbs: drift + scale pulse + opacity pulse — all three together */
-@keyframes orb-1 {
-  0%,100% { transform: translate(  0px,  0px) scale(1.00); opacity: var(--o1, 0.45); }
-  20%     { transform: translate( 60px,-50px) scale(1.12); opacity: calc(var(--o1, 0.45) * 1.25); }
-  45%     { transform: translate(-40px, 65px) scale(0.88); opacity: calc(var(--o1, 0.45) * 0.75); }
-  70%     { transform: translate( 50px, 20px) scale(1.08); opacity: calc(var(--o1, 0.45) * 1.15); }
-}
-@keyframes orb-2 {
-  0%,100% { transform: translate(  0px,  0px) scale(1.00); opacity: var(--o2, 0.40); }
-  25%     { transform: translate(-65px, 45px) scale(1.10); opacity: calc(var(--o2, 0.40) * 1.30); }
-  55%     { transform: translate( 55px,-55px) scale(0.90); opacity: calc(var(--o2, 0.40) * 0.70); }
-  80%     { transform: translate(-25px,-15px) scale(1.06); opacity: calc(var(--o2, 0.40) * 1.10); }
-}
-@keyframes orb-3 {
-  0%,100% { transform: translate(  0px,  0px) scale(1.00); opacity: var(--o3, 0.35); }
-  35%     { transform: translate( 50px, 60px) scale(1.14); opacity: calc(var(--o3, 0.35) * 1.35); }
-  65%     { transform: translate(-60px,-30px) scale(0.86); opacity: calc(var(--o3, 0.35) * 0.72); }
-}
-@keyframes orb-4 {
-  0%,100% { transform: translate(  0px,  0px) scale(1.00); opacity: var(--o4, 0.30); }
-  30%     { transform: translate(-45px, 50px) scale(1.12); opacity: calc(var(--o4, 0.30) * 1.40); }
-  60%     { transform: translate( 60px,-28px) scale(0.90); opacity: calc(var(--o4, 0.30) * 0.68); }
+  /* Primary display heading — bold sans, the new default for h1/h2 */
+  .font-display {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.05;
+  }
 }
 
 /* ── Plastic chip system ────────────────────────────────────────── */

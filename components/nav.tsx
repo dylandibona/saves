@@ -12,39 +12,44 @@ async function signOut() {
 
 export async function Nav() {
   return (
-    <header className="sticky top-0 z-10 border-b border-white/[0.08]"
-      style={{ background: 'oklch(0.10 0.08 262 / 0.85)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}
+    <header
+      className="sticky top-0 z-10 border-b border-white/[0.06]"
+      style={{
+        background: 'oklch(0.10 0.005 240 / 0.92)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
+      }}
     >
-      <div className="max-w-2xl mx-auto px-4 h-14 flex items-center justify-between">
+      <div className="max-w-2xl mx-auto px-5 h-16 flex items-center justify-between">
         <Link href="/" className="leading-none">
           <AnimatedWordmark />
         </Link>
-        <nav className="flex items-center gap-6">
-          <Link href="/add"
-            className="font-mono text-[11px] text-white/40 hover:text-white/85 transition-colors duration-200">
-            + Add
-          </Link>
-          <Link href="/map"
-            className="font-mono text-[11px] text-white/40 hover:text-white/85 transition-colors duration-200">
-            Map
-          </Link>
-          <Link href="/settings"
-            className="font-mono text-[11px] text-white/40 hover:text-white/85 transition-colors duration-200"
-            aria-label="Settings"
-            title="Settings">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="3"/>
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-            </svg>
-          </Link>
+
+        <nav className="flex items-center gap-1">
+          <NavLink href="/add" label="Add" />
+          <NavLink href="/map" label="Map" />
+          <NavLink href="/settings" label="Settings" />
           <form action={signOut}>
-            <button type="submit"
-              className="font-mono text-[11px] text-white/22 hover:text-white/50 transition-colors duration-200">
-              Sign Out
+            <button
+              type="submit"
+              className="text-[13px] font-medium text-white/45 hover:text-white/80 transition-colors duration-150 px-3 py-2"
+            >
+              Sign out
             </button>
           </form>
         </nav>
       </div>
     </header>
+  )
+}
+
+function NavLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link
+      href={href}
+      className="text-[13px] font-medium text-white/70 hover:text-white transition-colors duration-150 px-3 py-2"
+    >
+      {label}
+    </Link>
   )
 }

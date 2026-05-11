@@ -1,119 +1,31 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-
-// Three pixel fonts — each has a distinct character
-// CSS variables set by next/font in layout.tsx
-const FONTS = [
-  { family: 'var(--font-pixel-b)', size: '26px', letterSpacing: '0.04em' },   // Pixelify Sans — clean, modern pixel
-  { family: 'var(--font-pixel-a)', size: '34px', letterSpacing: '-0.01em' },  // VT323 — terminal, condensed, needs larger size
-  { family: 'var(--font-pixel-c)', size: '22px', letterSpacing: '0.06em' },   // Silkscreen — sharp, thicker stroke
-] as const
-
-const LETTERS = ['F', 'i', 'n', 'd', 's'] as const
-
-// Each letter gets an independent timer offset so changes feel organic
-const LETTER_CONFIG = [
-  { interval: 3100, delay: 0 },
-  { interval: 4200, delay: 700 },
-  { interval: 2800, delay: 1400 },
-  { interval: 3700, delay: 300 },
-  { interval: 4600, delay: 1100 },
-]
-
-function AnimLetter({
-  char,
-  initialFont,
-  interval,
-  delay,
-}: {
-  char: string
-  initialFont: number
-  interval: number
-  delay: number
-}) {
-  const [fontIdx, setFontIdx] = useState(initialFont)
-  const [opacity, setOpacity] = useState(1)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    const schedule = () => {
-      timerRef.current = setTimeout(() => {
-        // Fade out
-        setOpacity(0)
-        // After fade, switch font and fade back in
-        setTimeout(() => {
-          setFontIdx(prev => (prev + 1) % FONTS.length)
-          setOpacity(1)
-          // Schedule next change
-          schedule()
-        }, 130)
-      }, interval)
-    }
-
-    // Initial stagger delay
-    const init = setTimeout(schedule, delay)
-    return () => {
-      clearTimeout(init)
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [interval, delay])
-
-  const font = FONTS[fontIdx]
-
-  return (
-    <span
-      style={{
-        fontFamily: font.family,
-        fontSize: font.size,
-        letterSpacing: font.letterSpacing,
-        opacity,
-        transition: 'opacity 0.13s ease-in-out',
-        display: 'inline-block',
-        // Fixed width so layout doesn't shift as fonts change
-        minWidth:
-          char === 'F' ? '0.58em' :
-          char === 'i' ? '0.30em' :
-          char === 'n' ? '0.62em' :
-          char === 'd' ? '0.62em' :
-          char === 's' ? '0.50em' :
-          '0.55em',
-        textAlign: 'center',
-        lineHeight: 1,
-        verticalAlign: 'baseline',
-        // Normalize visual baseline across fonts
-        position: 'relative',
-        top: fontIdx === 1 ? '2px' : '0px', // VT323 sits slightly lower
-      }}
-    >
-      {char}
-    </span>
-  )
-}
+/**
+ * Wordmark — static, confident, sans-serif. No animation.
+ *
+ * The previous letter-cycling pixel-font version was a fun easter egg but
+ * read as "playful side-project" rather than "premium product." Replaced
+ * with a single bold mark that puts utility first.
+ *
+ * If we want a future animation moment, it should be on a deliberate
+ * surface (e.g. the loading state of /add) — not on every screen via the
+ * nav.
+ */
 
 export function AnimatedWordmark() {
-  // Start each letter at a different font so the word looks varied immediately
-  const initialFonts = [0, 1, 2, 0, 1]
-
   return (
     <span
-      className="text-white/90 select-none"
+      className="select-none"
       style={{
-        display: 'inline-flex',
-        alignItems: 'baseline',
-        height: '34px',
-        gap: '0px',
+        fontFamily: 'var(--font-sans)',
+        fontWeight: 700,
+        fontSize: '22px',
+        letterSpacing: '-0.025em',
+        color: 'rgba(255,255,255,0.96)',
+        lineHeight: 1,
       }}
     >
-      {LETTERS.map((char, i) => (
-        <AnimLetter
-          key={i}
-          char={char}
-          initialFont={initialFonts[i]}
-          interval={LETTER_CONFIG[i].interval}
-          delay={LETTER_CONFIG[i].delay}
-        />
-      ))}
+      Finds
     </span>
   )
 }

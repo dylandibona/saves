@@ -18,10 +18,10 @@ export default async function AddPage({
   return (
     <>
       <Nav />
-      <main className="max-w-lg mx-auto px-6 py-12">
-        <div className="mb-10">
-          <h1 className="font-serif-display text-3xl text-white/90 leading-tight">
-            A new find.
+      <main className="max-w-lg mx-auto px-5 py-10">
+        <div className="mb-8">
+          <h1 className="font-display text-white text-[36px]">
+            A new <span className="font-serif italic font-normal">find</span>.
           </h1>
         </div>
         <AddForm initialUrl={initialUrl} />
