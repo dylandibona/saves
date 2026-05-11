@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/lib/types/supabase'
 import { enrichUrl } from '@/lib/actions/enrich-url'
+import { userCanSave } from '@/lib/billing/can-save'
 
 type SaveCategory = Database['public']['Enums']['save_category']
 
@@ -74,6 +75,16 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = userRow.id
+
+    // 4b. Billing gate — returns ok:true today; one env-var flip enforces tiers later.
+    const gate = await userCanSave(userId)
+    if (!gate.ok) {
+      console.warn('[share-save] gate blocked', { userId, reason: gate.reason })
+      return NextResponse.json(
+        { ok: false, error: `billing: ${gate.reason}` },
+        { status: 402 }  // 402 Payment Required
+      )
+    }
 
     // 5. User → household
     const { data: membership } = await supabase

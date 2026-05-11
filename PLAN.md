@@ -11,45 +11,7 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 ---
 
-## 1. Stripe gate architecture (open lock) — `now` — M
-
-**Why:** RUNBOOK §3 and DECISIONS §G3 commit to plumbing billing infrastructure now, even with the lock open. Avoids a painful retrofit later. The actual decision to charge is decoupled from the architecture.
-
-**Scope:**
-- Stripe account + products + prices created (Free, Paid, Household-member tiers from STRATEGY pricing section).
-- `users.subscription_status` column + RLS read access.
-- Stripe Checkout integration plumbed into a `/billing` route — but the entry to it is hidden in UI for now.
-- Webhook handler at `/api/stripe-webhook` with proper idempotency (event-id as primary key on a `stripe_events` table).
-- A `userCanSave(userId)` helper in `lib/auth/` that today always returns `true` but is the right hook for "paid? free-limit-reached? trialing?" later.
-- Save action and `/api/share-save` both call through `userCanSave`.
-
-**Done when:**
-- Stripe test products exist for $4/mo personal + $2/mo household-member tier.
-- A test Checkout session can be initiated programmatically.
-- Webhook receives test events and stores them idempotently.
-- All save paths route through `userCanSave` (currently always-true).
-- Flipping the lock = changing one env var or one boolean.
-
-**Risks:** Stripe webhook signature verification is fiddly. Allow ~half a day.
-
----
-
-## 2. Existing-saves backfill action — `now` — S
-
-**Why:** Saves created before per-category extraction (everything pre-`5174712`) have empty `canonical_data.extracted` and look threadbare on detail pages. Need a way to reprocess. Also useful for "Refresh this save's data" UX later.
-
-**Scope:**
-- New server action `reprocessSave(saveId)` that re-runs `enrichUrl()` against `canonical_url` and updates the save row's title/subtitle/category/hero/canonical_data fields if they were empty (don't clobber user edits).
-- One-off CLI: `npm run backfill` that finds all saves with empty `canonical_data.extracted` and reprocesses them, with rate limiting (1 per second) to stay polite.
-- UI button: "Refresh" on the save detail page, ⟳ icon, runs `reprocessSave`.
-
-**Done when:**
-- Any pre-extraction save can be refreshed with one tap on its detail page.
-- `npm run backfill` populates the existing ~handful of threadbare saves.
-
----
-
-## 3. Capture flow at full quality — `next` — XL
+## 1. Capture flow at full quality — `now` — XL
 
 **Why:** This is the signature moment of the product. Per STRATEGY §"The five signature flows" — capture is the gateway and the first impression. Current capture works but doesn't have the live-build animation or the share-from-anywhere experience.
 
@@ -88,7 +50,7 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 ---
 
-## 4. Library at full quality — `next` — XL
+## 2. Library at full quality — `next` — XL
 
 **Why:** Second of the five signature flows. The destination for everything captured.
 
@@ -107,7 +69,7 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 ---
 
-## 5. Deploy hygiene — `next` — S
+## 3. Deploy hygiene — `next` — S
 
 **Why:** Currently anyone can push to main and trigger a Vercel deploy regardless of TypeScript errors or build failure. Cheap to add a guardrail.
 
@@ -122,7 +84,7 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 ---
 
-## 6. Edit save UI — `next` — M
+## 4. Edit save UI — `next` — M
 
 **Why:** Once saved, you can't edit title/category/note/visibility from the UI. Must delete + re-add. Real friction.
 
@@ -136,7 +98,13 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 ---
 
-## 7. Tonight — `someday` — XL
+## 5. Reprocess / refresh save — `someday` — S
+
+(Was originally #2 in this list. Demoted because all existing saves are test data — wiping them and starting fresh is simpler than backfilling. The `reprocessSave` action remains a useful future "Refresh this save's data" feature, but isn't urgent.)
+
+---
+
+## 6. Tonight — `someday` — XL
 
 **Why:** Per STRATEGY, the daily-ritual signature feature. The friend handing you the right thing at the right time.
 
@@ -153,13 +121,13 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 ---
 
-## 8. Trip — `someday` — XL
+## 7. Trip — `someday` — XL
 
 Per STRATEGY. Build after Tonight ships. Trip mode requires geographic clustering of saves, which depends on the Trip-detection logic and decent place-extraction (we have the basics; will improve as Capture gets richer).
 
 ---
 
-## 9. Cellar — `someday` — M
+## 8. Cellar — `someday` — M
 
 Per STRATEGY. Build after Library is at full quality. Cellar is a derived view on top of the spatial canvas — most of the heavy lift is the underlying library, not Cellar itself.
 
@@ -187,6 +155,7 @@ See `CLAUDE.md` §7 for the full list of nice-to-haves that aren't priority enou
 
 Items that shipped. Newest first.
 
+- **Stripe gate architecture (open lock)** — Migration `20260511000001_stripe_billing`. `users.stripe_customer_id` + `subscription_status` + `subscription_plan` + `subscription_current_period_end` columns. `stripe_events` table with event-id PK for idempotent webhooks. `lib/billing/stripe.ts` client (server-only), `lib/billing/can-save.ts` helper that returns `{ok:true}` while `BILLING_ENFORCED !== 'true'`. `/api/stripe-webhook` with signature verification + idempotent processing of `checkout.session.completed` / `customer.subscription.{created,updated,deleted}` / `invoice.payment_failed`. `/api/checkout` initiates Checkout sessions with auto-customer-creation. `/billing` page (URL-only, no nav link) surfaces current plan + tier comparison + gate-open notice. `userCanSave` is the single gate hook called from `addSave` and `/api/share-save`.
 - **Save visibility (Shared / Just me)** — Migration `20260510000001_save_visibility`. Per-save visibility with RLS-enforced privacy. Schema, UI toggle, lock icon, detail page treatment all live.
 - **Share token + `/api/share-save`** — Background save endpoint for iOS Shortcut. Token auth, full enrichment, dedup, capture creation. (Shortcut distribution still in backlog.)
 - **Per-category structured extraction** — Claude extracts ingredients/exercises/hours/author/runtime/etc per category. ExtractedSection renders rich content on detail page.

@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getHouseholdId } from '@/lib/data/household'
+import { userCanSave } from '@/lib/billing/can-save'
 import type { Database, Json } from '@/lib/types/supabase'
 
 type SaveCategory = Database['public']['Enums']['save_category']
@@ -15,6 +16,12 @@ export async function addSave(formData: FormData) {
 
   const householdId = await getHouseholdId()
   if (!householdId) redirect('/login')
+
+  // Billing gate — returns ok:true today; one env-var flip enforces tiers later.
+  const gate = await userCanSave(user.id)
+  if (!gate.ok) {
+    redirect(`/billing?reason=${gate.reason}`)
+  }
 
   const url = (formData.get('url') as string | null)?.trim() || null
   const category = formData.get('category') as SaveCategory

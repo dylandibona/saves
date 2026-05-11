@@ -564,6 +564,33 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_events: {
+        Row: {
+          error: string | null
+          id: string
+          payload: Json
+          processed_at: string | null
+          received_at: string
+          type: string
+        }
+        Insert: {
+          error?: string | null
+          id: string
+          payload: Json
+          processed_at?: string | null
+          received_at?: string
+          type: string
+        }
+        Update: {
+          error?: string | null
+          id?: string
+          payload?: Json
+          processed_at?: string | null
+          received_at?: string
+          type?: string
+        }
+        Relationships: []
+      }
       tags: {
         Row: {
           color: string | null
@@ -621,6 +648,10 @@ export type Database = {
           settings: Json
           share_token: string | null
           share_token_created_at: string | null
+          stripe_customer_id: string | null
+          subscription_current_period_end: string | null
+          subscription_plan: string | null
+          subscription_status: string
           timezone: string | null
           updated_at: string
         }
@@ -639,6 +670,10 @@ export type Database = {
           settings?: Json
           share_token?: string | null
           share_token_created_at?: string | null
+          stripe_customer_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_plan?: string | null
+          subscription_status?: string
           timezone?: string | null
           updated_at?: string
         }
@@ -657,6 +692,10 @@ export type Database = {
           settings?: Json
           share_token?: string | null
           share_token_created_at?: string | null
+          stripe_customer_id?: string | null
+          subscription_current_period_end?: string | null
+          subscription_plan?: string | null
+          subscription_status?: string
           timezone?: string | null
           updated_at?: string
         }

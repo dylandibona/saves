@@ -395,6 +395,12 @@ All household-scoped tables: `is_household_member(hid)` — `SECURITY DEFINER ST
 | `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | yes for /map | Restrict to `saves.dylandibona.com/*` (currently unrestricted — backlog) |
 | `ANTHROPIC_API_KEY` | recommended | Without it, enrichment falls back to OG heuristics. Lazy-imported server-side. claude-opus-4-5. |
 | `INBOUND_EMAIL_DOMAIN` | yes | Currently `in.saves.app` placeholder. Sprint 2 will need real domain (Postmark inbound). |
+| `STRIPE_SECRET_KEY` | no (gate open) | **Server-only.** Stripe API calls. Required if `BILLING_ENFORCED=true`. |
+| `STRIPE_WEBHOOK_SECRET` | no (gate open) | **Server-only.** Webhook signature verification. Required for `/api/stripe-webhook`. |
+| `STRIPE_PRICE_ID_PERSONAL` | no (gate open) | Stripe price ID for the Personal $4/mo tier. |
+| `STRIPE_PRICE_ID_HOUSEHOLD_MEMBER` | no (gate open) | Stripe price ID for the Household-member $2/mo tier. |
+| `BILLING_ENFORCED` | no | Set to `'true'` to activate gating logic. Default open. One flip = paid gate active. |
+| `NEXT_PUBLIC_SITE_URL` | no | Absolute origin for Stripe Checkout success/cancel redirects. Defaults to request Origin. |
 
 All set in Vercel for Production+Preview. Verified via dashboard.
 
