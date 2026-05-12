@@ -97,25 +97,38 @@ export type FetchResult = {
   og: OgData
 }
 
-const USER_AGENT =
+const CHROME_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
-// Some sites (Instagram, TikTok, certain news) return richer OG data to
-// social-bot user agents than to a regular browser UA. Facebook's preview
-// crawler is the most permissive — and Instagram especially is built to
-// feed it well.
+// Facebook's preview crawler — Instagram is built to feed it well, and
+// Google Maps shortlinks redirect cleanly under this UA where they'd
+// serve an empty interstitial to anything that looks like a browser.
 const FB_BOT_UA =
   'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
 
+// Slack's link-expander. The single most permissive UA we've found for
+// Cloudflare-protected publishers — Dotdash/Meredith (foodandwine,
+// allrecipes, eatingwell, simplyrecipes, etc.), most newsrooms, and many
+// indie blogs whitelist it because Slack previews are common and they
+// don't want them broken. Returns the full rendered page with all OG
+// markup and JSON-LD intact where Chrome UA gets a 403 challenge.
+const SLACK_BOT_UA =
+  'Slackbot-LinkExpanding 1.0 (+https://api.slack.com/robots)'
+
 function pickUserAgent(url: string): string {
-  // Google Maps shortlinks (maps.app.goo.gl/...) serve an empty interstitial
-  // to desktop Chrome UAs — no redirect, no OG tags. With the Facebook
-  // crawler UA Google returns the full redirect to the canonical
-  // www.google.com/maps?q=... URL with rich OG markup baked in (place
-  // name, rating, address, real photo CDN URL). Same story as Instagram.
+  // Instagram: FB's own bot gets the richest OG markup, including captions.
   if (url.includes('instagram.com')) return FB_BOT_UA
-  if (url.includes('maps.app.goo.gl') || url.includes('goo.gl') || url.includes('maps.google')) return FB_BOT_UA
-  return USER_AGENT
+
+  // Google Maps shortlinks: FB-bot UA bypasses the consent interstitial
+  // and returns the full /maps?q=NAME,ADDRESS redirect with rich OG.
+  if (url.includes('maps.app.goo.gl') || url.includes('goo.gl') || url.includes('maps.google')) {
+    return FB_BOT_UA
+  }
+
+  // Everything else: Slackbot. Better hit rate than Chrome UA on WAF'd
+  // publishers and behaves identically on every site that returns the
+  // same content to both.
+  return SLACK_BOT_UA
 }
 
 export async function fetchAndParse(url: string): Promise<FetchResult | null> {

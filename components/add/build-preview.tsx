@@ -110,7 +110,17 @@ export function BuildPreview({ state }: { state: BuildState }) {
 
   const color = state.category ? CATEGORY_COLORS[state.category] ?? '#888' : '#666'
   const categoryLabel = state.category ? CATEGORY_LABELS[state.category] : null
-  const showThinking = state.status === 'fetching' || state.status === 'classifying'
+
+  // Featured active-verb moment. The build is doing real work — naming it
+  // out loud makes the magic legible. Lives in the title slot until the
+  // real title arrives, then fades out and gets replaced.
+  const verb: string | null =
+    state.title
+      ? null
+      : state.status === 'fetching'    ? 'Reading'
+      : state.status === 'classifying' ? 'Distilling'
+      : state.status === 'starting'    ? 'Receiving'
+      : null
 
   return (
     <motion.div
@@ -149,10 +159,10 @@ export function BuildPreview({ state }: { state: BuildState }) {
       </AnimatePresence>
 
       <div className="p-4 space-y-3">
-        {/* Header row — category chip + thinking indicator */}
+        {/* Header row — category chip only (verb moved to title slot) */}
         <div className="flex items-center gap-2 min-h-[20px]">
           <AnimatePresence mode="wait">
-            {state.category && categoryLabel ? (
+            {state.category && categoryLabel && (
               <motion.span
                 key={state.category}
                 {...chipBloom}
@@ -166,16 +176,7 @@ export function BuildPreview({ state }: { state: BuildState }) {
               >
                 {categoryLabel}
               </motion.span>
-            ) : showThinking ? (
-              <motion.span
-                key="thinking"
-                {...fadeIn}
-                className="inline-flex items-center gap-1.5 font-mono text-[10px] text-white/40"
-              >
-                <ThinkingDot />
-                <span>{state.status === 'fetching' ? 'reading' : 'classifying'}</span>
-              </motion.span>
-            ) : null}
+            )}
           </AnimatePresence>
 
           {state.confidence === 'low' && state.category && (
@@ -196,6 +197,13 @@ export function BuildPreview({ state }: { state: BuildState }) {
             </motion.span>
           )}
         </div>
+
+        {/* Active verb — featured "live work" moment in the title slot */}
+        <AnimatePresence mode="wait">
+          {verb && (
+            <ActiveVerb key={verb} verb={verb} />
+          )}
+        </AnimatePresence>
 
         {/* Title */}
         <AnimatePresence>
@@ -433,12 +441,68 @@ function MetaRow({ items }: { items: Array<{ label: string; value: string }> }) 
   )
 }
 
-function ThinkingDot() {
+/**
+ * The active-verb moment — the visible expression of "Finds is doing
+ * real work right now." Inspired by Claude's animated verbs ("Thinking",
+ * "Pondering", "Searching"): the work has a name and a voice while it's
+ * happening, not a hidden spinner.
+ *
+ * Renders as a serif italic display word in the title slot, with three
+ * dots pulsing in sequence beside it. Swaps cleanly via AnimatePresence
+ * when the verb changes (Reading → Distilling → Locating → real title).
+ */
+function ActiveVerb({ verb }: { verb: string }) {
   return (
-    <motion.span
-      animate={{ opacity: [0.3, 1, 0.3] }}
-      transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
-      className="inline-block w-1.5 h-1.5 rounded-full bg-white/60"
-    />
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -4 }}
+      transition={{ duration: 0.36, ease: 'easeOut' as const }}
+      className="flex items-baseline gap-2.5"
+    >
+      <span
+        style={{
+          fontFamily: 'var(--font-serif)',
+          fontStyle: 'italic',
+          fontVariationSettings: "'opsz' 144, 'wght' 400, 'SOFT' 50",
+          fontSize: '26px',
+          letterSpacing: '-0.02em',
+          color: 'var(--color-paper)',
+          lineHeight: 1,
+        }}
+      >
+        {verb}
+      </span>
+      <TypingDots />
+    </motion.div>
+  )
+}
+
+function TypingDots() {
+  return (
+    <span
+      aria-hidden
+      className="inline-flex gap-[3px] items-baseline"
+      style={{ marginBottom: '6px' }}
+    >
+      {[0, 1, 2].map(i => (
+        <motion.span
+          key={i}
+          className="inline-block rounded-full"
+          style={{
+            width: '5px',
+            height: '5px',
+            background: 'var(--color-paper)',
+          }}
+          animate={{ opacity: [0.18, 0.85, 0.18] }}
+          transition={{
+            duration: 1.15,
+            repeat: Infinity,
+            ease: 'easeInOut',
+            delay: i * 0.18,
+          }}
+        />
+      ))}
+    </span>
   )
 }
