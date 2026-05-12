@@ -13,13 +13,12 @@ const ALL_CATS = Object.keys(CATEGORY_LABELS) as Cat[]
 /**
  * Feed — Library surface.
  *
- * The page hero is a saturated Finds Green panel that uses the same
- * Fraunces italic wordmark as the top-left brand mark — one typographic
- * voice for "Finds." across the app. Beneath it: a count subtitle ("11
- * finds."), a search bar, category pills, then the compact rows.
- *
- * The hero panel is the one chromatic puncture per Sagmeister discipline:
- * forest green ground, cream ink, and nothing else fights it.
+ * The masthead wordmark in BottomNav already carries the brand. So the
+ * page hero doesn't need to repeat "Finds." — it just needs to count
+ * what's here. The chromatic puncture moves onto the numeral: an
+ * oversized Fraunces-italic count in brand green, with "finds." in
+ * cream beside it. One charged element, lots of breathing room around
+ * it — Hara emptiness, Sagmeister color discipline, no redundant logo.
  */
 
 const EASE = { duration: 0.18, ease: 'easeInOut' } as const
@@ -103,73 +102,69 @@ export function FeedClient({
 
   return (
     <div className="space-y-6">
-      {/* ── Brand hero panel — saturated forest, the one color moment ──── */}
-      <section
-        className="relative overflow-hidden"
-        style={{
-          background: 'var(--color-brand)',
-          color: 'var(--color-brand-ink)',
-          borderRadius: 'var(--radius-xl)',
-          padding: '28px 24px 24px',
-        }}
-      >
-        {/* Soft inner highlight for tactility */}
-        <div
-          aria-hidden
-          className="absolute inset-0 pointer-events-none"
+      {/* ── Header: oversized green numeral as the one chromatic moment ── */}
+      <header className="space-y-2">
+        <p
+          className="font-mono uppercase"
           style={{
-            background:
-              'radial-gradient(120% 80% at 12% 0%, rgba(255,255,255,0.10), transparent 55%)',
+            fontSize: '11px',
+            letterSpacing: '0.18em',
+            color: 'var(--color-mute)',
           }}
-        />
+        >
+          Library
+        </p>
 
-        <div className="relative">
-          <p
-            className="font-mono uppercase"
-            style={{
-              fontSize: '10px',
-              letterSpacing: '0.18em',
-              color: 'oklch(0.95 0.02 95 / 0.65)',
-            }}
-          >
-            Library
-          </p>
-
+        {total === 0 ? (
           <h1
-            className="mt-3 leading-none"
             style={{
               fontFamily: 'var(--font-serif)',
               fontStyle: 'italic',
               fontVariationSettings: "'opsz' 144, 'wght' 500, 'SOFT' 50",
-              fontSize: '64px',
+              fontSize: '40px',
               letterSpacing: '-0.025em',
-              color: 'var(--color-brand-ink)',
+              color: 'var(--color-paper)',
+              lineHeight: 1,
             }}
           >
-            Finds<span style={{ fontStyle: 'normal' }}>.</span>
+            No finds<span style={{ fontStyle: 'normal' }}>.</span>
           </h1>
-
-          <p
-            className="mt-3"
-            style={{
-              fontSize: '14px',
-              color: 'oklch(0.95 0.02 95 / 0.78)',
-              fontFamily: 'var(--font-sans)',
-            }}
+        ) : (
+          <h1
+            className="flex items-baseline gap-3"
+            style={{ lineHeight: 1 }}
           >
-            {total === 0
-              ? 'No finds yet.'
-              : (
-                <>
-                  <span className="tabular-nums" style={{ fontWeight: 600, color: 'var(--color-brand-ink)' }}>
-                    {total}
-                  </span>{' '}
-                  {noun}.
-                </>
-              )}
-          </p>
-        </div>
-      </section>
+            <span
+              className="tabular-nums"
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontStyle: 'italic',
+                fontVariationSettings: "'opsz' 144, 'wght' 500, 'SOFT' 50",
+                fontSize: '64px',
+                letterSpacing: '-0.04em',
+                /* Brighter forest jewel-tone — --color-brand is tuned as
+                   a ground for cream ink and reads too dim as a figure
+                   on the dark bg. */
+                color: 'oklch(0.70 0.16 152)',
+              }}
+            >
+              {total}
+            </span>
+            <span
+              style={{
+                fontFamily: 'var(--font-serif)',
+                fontStyle: 'italic',
+                fontVariationSettings: "'opsz' 144, 'wght' 400",
+                fontSize: '28px',
+                letterSpacing: '-0.02em',
+                color: 'var(--color-paper)',
+              }}
+            >
+              {noun}<span style={{ fontStyle: 'normal' }}>.</span>
+            </span>
+          </h1>
+        )}
+      </header>
 
       {/* ── Search ────────────────────────────────────────────────────── */}
       <div className="relative">
