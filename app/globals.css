@@ -30,22 +30,12 @@
   --color-mute:       oklch(0.62 0.015 95);   /* secondary, metadata */
   --color-faint:      oklch(0.42 0.012 95);   /* tertiary, disabled */
 
-  /* ── Category accents — jewel-tones tuned warm ───────────────────── */
-  /* Used as 6px dots beside titles or small chip fills. Never card grounds. */
-  --color-cat-recipe:     oklch(0.62 0.16 35);   /* terracotta */
-  --color-cat-tv:         oklch(0.50 0.14 280);  /* dusk violet */
-  --color-cat-movie:      oklch(0.45 0.12 25);   /* oxblood */
-  --color-cat-restaurant: oklch(0.66 0.14 70);   /* amber */
-  --color-cat-hotel:      oklch(0.55 0.08 200);  /* slate teal */
-  --color-cat-place:      oklch(0.60 0.10 145);  /* moss */
-  --color-cat-event:      oklch(0.65 0.16 350);  /* rose */
-  --color-cat-book:       oklch(0.50 0.10 80);   /* tobacco */
-  --color-cat-podcast:    oklch(0.55 0.12 320);  /* orchid */
-  --color-cat-music:      oklch(0.60 0.13 220);  /* ink blue */
-  --color-cat-article:    oklch(0.70 0.04 95);   /* paper gray */
-  --color-cat-product:    oklch(0.65 0.10 50);   /* sand */
-  --color-cat-workout:    oklch(0.62 0.16 130);  /* fern */
-  --color-cat-noted:      oklch(0.55 0.02 95);   /* graphite */
+  /* Category accents live OUTSIDE @theme — see the :root block below.
+     Tailwind v4 tree-shakes theme vars that aren't referenced by any
+     utility class. We use category colors only via `var()` in inline
+     styles (chip dots, marker fills, bookplate letterforms), so theme
+     emission strips them. Keeping them on :root keeps them in the
+     bundle unconditionally. */
 
   /* ── State colors ────────────────────────────────────────────────── */
   --color-danger:     oklch(0.62 0.20 22);     /* ruby */
@@ -83,6 +73,30 @@
   --color-destructive: var(--color-danger);
   --color-card: var(--color-surface);
   --color-card-foreground: var(--color-paper);
+}
+
+/* ────────────────────────────────────────────────────────────────────
+   Category accents — jewel-tones tuned warm.
+   Used as small dots beside titles or chip fills. Never card grounds.
+   These sit on :root rather than inside @theme so Tailwind v4 doesn't
+   tree-shake them out of the bundle (they're only referenced via
+   var() in inline styles, not as utility classes).
+   ──────────────────────────────────────────────────────────────────── */
+:root {
+  --color-cat-recipe:     oklch(0.62 0.16 35);   /* terracotta */
+  --color-cat-tv:         oklch(0.50 0.14 280);  /* dusk violet */
+  --color-cat-movie:      oklch(0.45 0.12 25);   /* oxblood */
+  --color-cat-restaurant: oklch(0.66 0.14 70);   /* amber */
+  --color-cat-hotel:      oklch(0.55 0.08 200);  /* slate teal */
+  --color-cat-place:      oklch(0.60 0.10 145);  /* moss */
+  --color-cat-event:      oklch(0.65 0.16 350);  /* rose */
+  --color-cat-book:       oklch(0.50 0.10 80);   /* tobacco */
+  --color-cat-podcast:    oklch(0.55 0.12 320);  /* orchid */
+  --color-cat-music:      oklch(0.60 0.13 220);  /* ink blue */
+  --color-cat-article:    oklch(0.70 0.04 95);   /* paper gray */
+  --color-cat-product:    oklch(0.65 0.10 50);   /* sand */
+  --color-cat-workout:    oklch(0.62 0.16 130);  /* fern */
+  --color-cat-noted:      oklch(0.55 0.02 95);   /* graphite */
 }
 
 @layer base {
