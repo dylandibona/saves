@@ -116,16 +116,28 @@ export async function fetchAndParse(url: string): Promise<FetchResult | null> {
     const res = await fetch(url, {
       headers: {
         'User-Agent': pickUserAgent(url),
-        Accept: 'text/html,application/xhtml+xml',
+        Accept:
+          'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Upgrade-Insecure-Requests': '1',
+        'sec-ch-ua':
+          '"Not_A Brand";v="8", "Chromium";v="124", "Google Chrome";v="124"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"macOS"',
       },
       signal: AbortSignal.timeout(8000),
       redirect: 'follow',
     })
 
-    if (!res.ok) return null
-
     const finalUrl = res.url || url
     const html = await res.text()
+
+    // Don't bail on non-2xx. Many sites (Dotdash/Meredith — foodandwine,
+    // allrecipes, eatingwell, realsimple, etc.) sit behind WAFs that return
+    // 403/429 but still include the full HTML body with OG markup intact.
+    // We only give up if the body is too small to contain anything useful.
+    if (!res.ok && html.length < 5_000) return null
 
     const extract = (pattern: RegExp): string | null => {
       const m = html.match(pattern)

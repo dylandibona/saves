@@ -8,25 +8,27 @@ import type { Database } from '@/lib/types/supabase'
 type SaveCategory = Database['public']['Enums']['save_category']
 
 /**
- * Save card — photo-led, full-bleed image, bookplate fallback when no image.
- * See docs/component-specs.md §1 and docs/design-direction.md §4.
+ * Save card — compact horizontal row, 88px tall.
  *
- * The save IS the card — no chrome. Category appears as a 6px dot beside the
- * title, never as a left-border accent strip (huashu anti-slop §6.2). The
- * recommender identity pill sits in the top-right corner of the image, with
- * dark text on saturated color (component-specs §11 "120% detail").
+ * Layout: square thumbnail on the left (88×88), text block on the right.
+ * Title is the loudest element; below it sits a quiet meta row with a 6px
+ * category dot, the category label, and the last-captured relative time.
+ *
+ * When no hero image exists, the thumbnail becomes a typographic bookplate
+ * (surface-2 ground + mono category label + tiny initial of the title).
+ *
+ * Recommender identity, capture count, and the private-lock state all live
+ * on the thumbnail as small badges so the text region stays calm.
  */
 
-function categoryDotVar(cat: SaveCategory): string {
-  return `var(--color-cat-${cat})`
-}
+const ROW_H = 88
+const THUMB = 88
 
 function SaverPill({ users }: { users: NonNullable<SaveWithRecommenders['captures'][number]['users']>[] }) {
   if (users.length === 0) return null
   const visible = users.slice(0, 2)
-
   return (
-    <div className="flex -space-x-1.5">
+    <div className="flex -space-x-1">
       {visible.map(u => {
         const initials = getUserInitials(u)
         const color = getUserColor(u)
@@ -34,14 +36,15 @@ function SaverPill({ users }: { users: NonNullable<SaveWithRecommenders['capture
           <span
             key={u.id}
             title={u.display_name ?? u.email}
-            className="grid place-items-center text-[10px] font-semibold tabular-nums tracking-wide rounded-full"
+            className="grid place-items-center text-[9px] font-semibold tabular-nums rounded-full"
             style={{
-              width: '24px',
-              height: '24px',
+              width: '18px',
+              height: '18px',
               background: color,
               color: 'var(--color-bg)',
-              border: '2px solid var(--color-surface)',
+              border: '1.5px solid var(--color-surface)',
               fontFamily: 'var(--font-sans)',
+              letterSpacing: '-0.01em',
             }}
           >
             {initials}
@@ -69,161 +72,127 @@ export function SaveCard({ save }: { save: SaveWithRecommenders }) {
   const label = CATEGORY_LABELS[category] ?? category
   const savers = uniqueSavers(save.captures)
   const hasImage = Boolean(save.hero_image_url)
+  const isPrivate = save.visibility === 'private'
 
   return (
     <Link
       href={`/saves/${save.id}`}
       aria-label={save.title}
-      className="group relative block overflow-hidden transition-transform duration-300 ease-out hover:scale-[1.005] active:scale-[0.995]"
+      className="group relative flex items-stretch overflow-hidden transition-colors duration-150"
       style={{
+        height: `${ROW_H}px`,
         background: 'var(--color-surface)',
-        borderRadius: 'var(--radius-lg)',
+        borderRadius: 'var(--radius-md)',
       }}
     >
-      {/* Image region — full bleed, OR bookplate fallback */}
-      {hasImage ? (
-        <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 11' }}>
+      {/* Thumbnail — image or bookplate */}
+      <div
+        className="relative shrink-0 overflow-hidden"
+        style={{
+          width: `${THUMB}px`,
+          height: `${THUMB}px`,
+          background: hasImage ? 'var(--color-bg)' : 'var(--color-surface-2)',
+        }}
+      >
+        {hasImage ? (
           <Image
             src={save.hero_image_url!}
             alt=""
             fill
-            sizes="(max-width: 768px) 100vw, 760px"
-            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+            sizes="88px"
+            className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.05]"
           />
-
-          {/* Identity pill — top right */}
-          {savers.length > 0 && (
-            <div className="absolute top-3 right-3">
-              <SaverPill users={savers} />
-            </div>
-          )}
-
-          {/* Capture-count badge — top left when 2+ */}
-          {save.capture_count >= 2 && (
+        ) : (
+          <div className="absolute inset-0 grid place-items-center">
             <span
-              className="absolute top-3 left-3 px-2 py-0.5 rounded-full text-[10px] font-mono tabular-nums backdrop-blur-md"
+              className="font-serif italic"
               style={{
-                background: 'oklch(0.14 0.005 95 / 0.70)',
-                color: 'var(--color-bone)',
+                fontSize: '32px',
+                color: `var(--color-cat-${category})`,
+                lineHeight: 1,
               }}
             >
-              {save.capture_count}×
+              {save.title.trim().charAt(0).toUpperCase() || '◎'}
             </span>
-          )}
+          </div>
+        )}
 
-          {/* Private lock — bottom right of image */}
-          {save.visibility === 'private' && (
-            <span
-              className="absolute bottom-3 right-3 grid place-items-center rounded-full backdrop-blur-md"
-              style={{
-                width: '24px',
-                height: '24px',
-                background: 'oklch(0.14 0.005 95 / 0.70)',
-              }}
-              aria-label="Private save"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-bone)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-            </span>
-          )}
-        </div>
-      ) : (
-        /* Bookplate fallback — typographic treatment, no stock photo, no SVG fallback illustration */
-        <div
-          className="relative w-full flex flex-col justify-between p-5"
+        {/* Capture count — top left, only when 2+ */}
+        {save.capture_count >= 2 && (
+          <span
+            className="absolute top-1.5 left-1.5 px-1.5 rounded-full text-[9px] font-mono tabular-nums backdrop-blur-md leading-[14px]"
+            style={{
+              background: 'oklch(0.14 0.005 95 / 0.78)',
+              color: 'var(--color-bone)',
+              height: '14px',
+            }}
+          >
+            {save.capture_count}×
+          </span>
+        )}
+
+        {/* Private lock — bottom right of thumb */}
+        {isPrivate && (
+          <span
+            className="absolute bottom-1.5 right-1.5 grid place-items-center rounded-full backdrop-blur-md"
+            style={{
+              width: '18px',
+              height: '18px',
+              background: 'oklch(0.14 0.005 95 / 0.72)',
+            }}
+            aria-label="Private save"
+          >
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="var(--color-bone)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </span>
+        )}
+      </div>
+
+      {/* Text region */}
+      <div className="flex-1 min-w-0 flex flex-col justify-center gap-1 px-4 py-2.5">
+        <h3
+          className="text-[15px] leading-[1.25] line-clamp-2"
           style={{
-            aspectRatio: '16 / 11',
-            background: 'var(--color-surface-2)',
+            fontFamily: 'var(--font-sans)',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+            color: 'var(--color-paper)',
+            textWrap: 'pretty',
           }}
         >
+          {save.title}
+        </h3>
+
+        {/* Meta row — category dot + label, then time + savers on the right */}
+        <div className="flex items-center gap-2 text-[11px]" style={{ color: 'var(--color-mute)' }}>
           <span
-            className="font-mono uppercase tracking-[0.18em] text-[10px]"
-            style={{ color: 'var(--color-mute)' }}
-          >
+            aria-hidden
+            style={{
+              width: '5px',
+              height: '5px',
+              borderRadius: '999px',
+              background: `var(--color-cat-${category})`,
+              flexShrink: 0,
+            }}
+          />
+          <span className="uppercase tracking-[0.09em] font-medium truncate">
             {label}
           </span>
-          <h3
-            className="font-display"
-            style={{
-              fontSize: '24px',
-              color: 'var(--color-paper)',
-              lineHeight: 1.1,
-            }}
-          >
-            {save.title}
-          </h3>
+          {save.last_captured_at && (
+            <>
+              <span aria-hidden style={{ opacity: 0.5 }}>·</span>
+              <span className="shrink-0">{formatRelativeTime(save.last_captured_at)}</span>
+            </>
+          )}
           {savers.length > 0 && (
-            <div className="absolute top-3 right-3">
+            <span className="ml-auto pl-2 shrink-0">
               <SaverPill users={savers} />
-            </div>
-          )}
-          {save.visibility === 'private' && (
-            <span
-              className="absolute bottom-3 right-3 grid place-items-center rounded-full"
-              style={{
-                width: '24px',
-                height: '24px',
-                background: 'oklch(0.14 0.005 95 / 0.50)',
-              }}
-              aria-label="Private save"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--color-bone)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
             </span>
           )}
         </div>
-      )}
-
-      {/* Text region (only when there's an image — bookplate has its own copy) */}
-      {hasImage && (
-        <div className="px-4 py-3">
-          <h3
-            className="text-[17px] leading-[1.25] line-clamp-2"
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontWeight: 600,
-              letterSpacing: '-0.01em',
-              color: 'var(--color-paper)',
-              textWrap: 'pretty',
-            }}
-          >
-            {save.title}
-          </h3>
-
-          {save.subtitle && (
-            <p
-              className="text-[13px] line-clamp-1 mt-1"
-              style={{ color: 'var(--color-mute)' }}
-            >
-              {save.subtitle}
-            </p>
-          )}
-
-          {/* Meta row — category dot + label + relative time */}
-          <div className="mt-2 flex items-center gap-2 text-[12px]" style={{ color: 'var(--color-mute)' }}>
-            <span
-              aria-hidden
-              style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '999px',
-                background: categoryDotVar(category),
-                flexShrink: 0,
-              }}
-            />
-            <span className="uppercase tracking-[0.08em] text-[11px] font-medium">
-              {label}
-            </span>
-            {save.last_captured_at && (
-              <span className="ml-auto">{formatRelativeTime(save.last_captured_at)}</span>
-            )}
-          </div>
-        </div>
-      )}
+      </div>
     </Link>
   )
 }

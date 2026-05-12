@@ -13,12 +13,13 @@ const ALL_CATS = Object.keys(CATEGORY_LABELS) as Cat[]
 /**
  * Feed — Library surface.
  *
- * Layout per docs/design-direction.md:
- *   header (eyebrow + H1 with Fraunces italic accent)
- *   subtle search bar
- *   category filter pills (quiet, dark — selected = bone fill)
- *   card grid (single column mobile, masonry-ish on wider)
- *   empty state when nothing kept yet
+ * The page hero is a saturated Finds Green panel that uses the same
+ * Fraunces italic wordmark as the top-left brand mark — one typographic
+ * voice for "Finds." across the app. Beneath it: a count subtitle ("11
+ * things kept."), a search bar, category pills, then the compact rows.
+ *
+ * The hero panel is the one chromatic puncture per Sagmeister discipline:
+ * forest green ground, cream ink, and nothing else fights it.
  */
 
 const EASE = { duration: 0.18, ease: 'easeInOut' } as const
@@ -97,32 +98,80 @@ export function FeedClient({
     return r
   }, [saves, active, query])
 
+  const total = saves.length
+  const noun = total === 1 ? 'thing' : 'things'
+
   return (
     <div className="space-y-6">
-      {/* Page header */}
-      <header className="space-y-1">
-        <p
-          className="font-mono uppercase"
+      {/* ── Brand hero panel — saturated forest, the one color moment ──── */}
+      <section
+        className="relative overflow-hidden"
+        style={{
+          background: 'var(--color-brand)',
+          color: 'var(--color-brand-ink)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '28px 24px 24px',
+        }}
+      >
+        {/* Soft inner highlight for tactility */}
+        <div
+          aria-hidden
+          className="absolute inset-0 pointer-events-none"
           style={{
-            fontSize: '11px',
-            letterSpacing: '0.18em',
-            color: 'var(--color-mute)',
+            background:
+              'radial-gradient(120% 80% at 12% 0%, rgba(255,255,255,0.10), transparent 55%)',
           }}
-        >
-          Library
-        </p>
-        <h1
-          className="font-display mt-2"
-          style={{
-            fontSize: '48px',
-            color: 'var(--color-bone)',
-          }}
-        >
-          Your <span className="font-serif italic font-normal">finds</span>
-        </h1>
-      </header>
+        />
 
-      {/* Search */}
+        <div className="relative">
+          <p
+            className="font-mono uppercase"
+            style={{
+              fontSize: '10px',
+              letterSpacing: '0.18em',
+              color: 'oklch(0.95 0.02 95 / 0.65)',
+            }}
+          >
+            Library
+          </p>
+
+          <h1
+            className="mt-3 leading-none"
+            style={{
+              fontFamily: 'var(--font-serif)',
+              fontStyle: 'italic',
+              fontVariationSettings: "'opsz' 144, 'wght' 500, 'SOFT' 50",
+              fontSize: '64px',
+              letterSpacing: '-0.025em',
+              color: 'var(--color-brand-ink)',
+            }}
+          >
+            Finds<span style={{ fontStyle: 'normal' }}>.</span>
+          </h1>
+
+          <p
+            className="mt-3"
+            style={{
+              fontSize: '14px',
+              color: 'oklch(0.95 0.02 95 / 0.78)',
+              fontFamily: 'var(--font-sans)',
+            }}
+          >
+            {total === 0
+              ? 'Nothing kept yet.'
+              : (
+                <>
+                  <span className="tabular-nums" style={{ fontWeight: 600, color: 'var(--color-brand-ink)' }}>
+                    {total}
+                  </span>{' '}
+                  {noun} kept.
+                </>
+              )}
+          </p>
+        </div>
+      </section>
+
+      {/* ── Search ────────────────────────────────────────────────────── */}
       <div className="relative">
         <span
           aria-hidden
@@ -167,7 +216,7 @@ export function FeedClient({
         )}
       </div>
 
-      {/* Category pills */}
+      {/* ── Category pills ────────────────────────────────────────────── */}
       {availableCats.length > 0 && (
         <div className="flex gap-2 flex-wrap">
           {availableCats.map(cat => (
@@ -182,7 +231,7 @@ export function FeedClient({
         </div>
       )}
 
-      {/* Feed */}
+      {/* ── Feed ──────────────────────────────────────────────────────── */}
       {filtered.length === 0 ? (
         <EmptyState filtered={Boolean(query || active)} />
       ) : (
@@ -191,14 +240,14 @@ export function FeedClient({
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="space-y-4"
+          className="space-y-2"
         >
           {filtered.map((save, i) => (
             <motion.div
               key={save.id}
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: 6 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.05, 0.4), duration: 0.28, ease: 'easeOut' }}
+              transition={{ delay: Math.min(i * 0.035, 0.28), duration: 0.22, ease: 'easeOut' }}
             >
               <SaveCard save={save} />
             </motion.div>
@@ -215,29 +264,29 @@ function EmptyState({ filtered }: { filtered: boolean }) {
       className="mx-auto flex flex-col items-center text-center"
       style={{
         maxWidth: '360px',
-        padding: '64px 24px',
+        padding: '40px 24px',
       }}
     >
       <span
         aria-hidden
-        style={{ fontSize: '22px', color: 'var(--color-mute)', marginBottom: '16px' }}
+        style={{ fontSize: '20px', color: 'var(--color-mute)', marginBottom: '14px' }}
       >
         ◎
       </span>
       <h2
         className="font-serif italic"
         style={{
-          fontSize: '22px',
+          fontSize: '20px',
           color: 'var(--color-paper)',
-          marginBottom: '8px',
+          marginBottom: '6px',
           lineHeight: 1.2,
         }}
       >
-        {filtered ? 'Nothing matches.' : 'Nothing kept yet.'}
+        {filtered ? 'Nothing matches.' : 'Send your first link.'}
       </h2>
       {!filtered && (
-        <p style={{ fontSize: '14px', color: 'var(--color-mute)', lineHeight: 1.5 }}>
-          Send a link from anywhere to begin.
+        <p style={{ fontSize: '13px', color: 'var(--color-mute)', lineHeight: 1.5 }}>
+          Tap the centered + below to begin.
         </p>
       )}
     </div>
