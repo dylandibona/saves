@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { SaveCard } from './save-card'
 import { CATEGORY_LABELS } from '@/lib/utils/time'
 import type { SaveWithRecommenders } from '@/lib/data/saves'
@@ -24,17 +24,19 @@ const ALL_CATS = Object.keys(CATEGORY_LABELS) as Cat[]
 const EASE = { duration: 0.18, ease: 'easeInOut' } as const
 
 /**
- * Category pill — two states, both chromatic.
+ * Category pill — two physical states.
  *
- * Inactive: surface-2 ground + 7px dot in the category color on the left
- *           of the label. The dot is the deliberate chromatic signal so
- *           every category reads as a distinct chip even when off.
+ * Inactive (raised): surface-2 ground, 7px dot in the category color on
+ *                    the left, paper-color label. Reads as a chip sitting
+ *                    on the page surface.
  *
- * Active:   the pill itself takes the category color as the ground, with
- *           bg-dark text. No internal dot — the whole pill IS the dot.
- *           That gives every category a visually distinct active state
- *           (amber Restaurant vs. moss Place vs. terracotta Recipe)
- *           instead of every active pill collapsing to identical bone.
+ * Active (pressed-in): the pill ground becomes a dark tone of the
+ *                      category color (~22% cat mixed into bg) and the
+ *                      label flips to the bright cat color, with an
+ *                      inset shadow so the pill looks recessed into the
+ *                      surface. The whole page tints to match (handled
+ *                      by the wrapper above), so the chip-press reads as
+ *                      "the room caught the chip's color."
  */
 function CategoryPill({
   label,
@@ -52,18 +54,25 @@ function CategoryPill({
       onClick={onClick}
       whileTap={{ scale: 0.96 }}
       transition={EASE}
-      className="inline-flex items-center gap-1.5 transition-colors duration-150"
+      className="inline-flex items-center gap-1.5 transition-colors duration-200"
       style={{
         height: '28px',
         padding: active ? '0 12px' : '0 12px 0 10px',
         borderRadius: 'var(--radius-pill)',
-        background: active ? `var(--color-cat-${cat})` : 'var(--color-surface-2)',
-        color: active ? 'var(--color-bg)' : 'var(--color-paper)',
+        background: active
+          ? `color-mix(in oklch, var(--color-cat-${cat}) 22%, var(--color-bg))`
+          : 'var(--color-surface-2)',
+        color: active
+          ? `var(--color-cat-${cat})`
+          : 'var(--color-paper)',
         fontFamily: 'var(--font-mono-space)',
         fontSize: '11px',
         textTransform: 'uppercase',
         letterSpacing: '0.08em',
         fontWeight: active ? 600 : 500,
+        boxShadow: active
+          ? 'inset 0 1.5px 3px rgba(0,0,0,0.45), inset 0 -1px 0 oklch(1 0 0 / 0.04)'
+          : 'none',
       }}
     >
       {!active && (
@@ -117,7 +126,32 @@ export function FeedClient({
   const noun = total === 1 ? 'find' : 'finds'
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6">
+      {/* ── Page-wide wash when a category is active ──────────────────
+          Fades in a soft radial gradient of the active category color
+          from the top of the viewport. Fixed positioning so it survives
+          scroll. pointer-events-none keeps it from intercepting taps.
+          The whole page "catches the color" of the pill that's pressed. */}
+      <AnimatePresence mode="wait">
+        {active && (
+          <motion.div
+            key={active}
+            aria-hidden
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+            className="pointer-events-none fixed inset-0 -z-10"
+            style={{
+              background:
+                `radial-gradient(90% 55% at 50% 0%, ` +
+                `color-mix(in oklch, var(--color-cat-${active}) 22%, transparent), ` +
+                `transparent 65%)`,
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Header: oversized green numeral as the one chromatic moment ── */}
       <header className="space-y-2">
         <p
