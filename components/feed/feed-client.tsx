@@ -23,6 +23,19 @@ const ALL_CATS = Object.keys(CATEGORY_LABELS) as Cat[]
 
 const EASE = { duration: 0.18, ease: 'easeInOut' } as const
 
+/**
+ * Category pill — two states, both chromatic.
+ *
+ * Inactive: surface-2 ground + 7px dot in the category color on the left
+ *           of the label. The dot is the deliberate chromatic signal so
+ *           every category reads as a distinct chip even when off.
+ *
+ * Active:   the pill itself takes the category color as the ground, with
+ *           bg-dark text. No internal dot — the whole pill IS the dot.
+ *           That gives every category a visually distinct active state
+ *           (amber Restaurant vs. moss Place vs. terracotta Recipe)
+ *           instead of every active pill collapsing to identical bone.
+ */
 function CategoryPill({
   label,
   active,
@@ -42,26 +55,29 @@ function CategoryPill({
       className="inline-flex items-center gap-1.5 transition-colors duration-150"
       style={{
         height: '28px',
-        padding: '0 10px',
+        padding: active ? '0 12px' : '0 12px 0 10px',
         borderRadius: 'var(--radius-pill)',
-        background: active ? 'var(--color-bone)' : 'var(--color-surface-2)',
+        background: active ? `var(--color-cat-${cat})` : 'var(--color-surface-2)',
         color: active ? 'var(--color-bg)' : 'var(--color-paper)',
         fontFamily: 'var(--font-mono-space)',
         fontSize: '11px',
         textTransform: 'uppercase',
         letterSpacing: '0.08em',
-        fontWeight: 500,
+        fontWeight: active ? 600 : 500,
       }}
     >
-      <span
-        aria-hidden
-        style={{
-          width: '6px',
-          height: '6px',
-          borderRadius: '999px',
-          background: `var(--color-cat-${cat})`,
-        }}
-      />
+      {!active && (
+        <span
+          aria-hidden
+          style={{
+            width: '7px',
+            height: '7px',
+            borderRadius: '999px',
+            background: `var(--color-cat-${cat})`,
+            flexShrink: 0,
+          }}
+        />
+      )}
       {label}
     </motion.button>
   )
