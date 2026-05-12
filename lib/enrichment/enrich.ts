@@ -108,7 +108,13 @@ const FB_BOT_UA =
   'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)'
 
 function pickUserAgent(url: string): string {
+  // Google Maps shortlinks (maps.app.goo.gl/...) serve an empty interstitial
+  // to desktop Chrome UAs — no redirect, no OG tags. With the Facebook
+  // crawler UA Google returns the full redirect to the canonical
+  // www.google.com/maps?q=... URL with rich OG markup baked in (place
+  // name, rating, address, real photo CDN URL). Same story as Instagram.
   if (url.includes('instagram.com')) return FB_BOT_UA
+  if (url.includes('maps.app.goo.gl') || url.includes('goo.gl') || url.includes('maps.google')) return FB_BOT_UA
   return USER_AGENT
 }
 
@@ -404,8 +410,16 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
 
     const placeName = extractMapsPlaceName(resolvedUrl)
 
-    // Clean up Google's "X - Google Maps" suffix from OG title
-    const cleanOgTitle = og.title?.replace(/\s*-\s*Google Maps\s*$/i, '').trim() ?? null
+    // Clean up Google's OG title. Two formats observed:
+    //   - Legacy: "Place Name - Google Maps"
+    //   - Current: "Place Name · 4.3★(37) · Restaurant"
+    // For the new middot-separated form we keep just the first segment.
+    const cleanOgTitle = og.title
+      ? og.title
+          .replace(/\s*-\s*Google Maps\s*$/i, '')
+          .split(/\s+·\s+/)[0]
+          .trim() || null
+      : null
 
     // Places API — authoritative source for category, photo, address.
     // Query priority: parsed place name from URL, then OG title cleaned up.

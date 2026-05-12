@@ -94,7 +94,15 @@ export async function POST(request: NextRequest) {
         if (urlType === 'google_maps') {
           urlCoords = extractMapsCoords(resolvedUrl) ?? findCoordsInText(html.slice(0, 50_000))
           mapsPlaceName = extractMapsPlaceName(resolvedUrl)
-          const cleanOg = og.title?.replace(/\s*-\s*Google Maps\s*$/i, '').trim() ?? null
+          // Strip both legacy " - Google Maps" suffix and the new
+          // middot-separated metadata (" · 4.3★(37) · Restaurant") so
+          // only the place name remains.
+          const cleanOg = og.title
+            ? og.title
+                .replace(/\s*-\s*Google Maps\s*$/i, '')
+                .split(/\s+·\s+/)[0]
+                .trim() || null
+            : null
           const placesQuery = mapsPlaceName ?? cleanOg ?? null
 
           if (placesQuery) {

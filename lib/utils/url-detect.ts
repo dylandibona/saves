@@ -107,17 +107,41 @@ export function extractMapsCoords(url: string): MapsCoords {
 }
 
 /**
- * Extracts place name from /maps/place/NAME/ path segment, URL-decoded.
- * Also handles + signs as spaces.
+ * Extracts place name from a Google Maps URL.
+ *
+ * Two shapes Google uses:
+ *   1. /maps/place/NAME/...  — when sharing from the desktop place card
+ *   2. /maps?q=NAME,ADDRESS  — when sharing from the iOS app via the
+ *      share sheet, which is what maps.app.goo.gl shortlinks redirect to
+ *
+ * Both come URL-encoded with `+` as space. For the `?q=` form, the place
+ * name is the first comma-separated segment; the rest is the postal
+ * address. Skip if the first segment looks like coordinates ("48.7,7.2").
  */
 export function extractMapsPlaceName(url: string): string | null {
   try {
     const parsed = new URL(url)
-    const match = parsed.pathname.match(/\/maps\/place\/([^/]+)/)
-    if (!match) return null
 
-    const raw = match[1].replace(/\+/g, ' ')
-    return decodeURIComponent(raw)
+    // Shape 1: /maps/place/NAME
+    const pathMatch = parsed.pathname.match(/\/maps\/place\/([^/]+)/)
+    if (pathMatch) {
+      return decodeURIComponent(pathMatch[1].replace(/\+/g, ' '))
+    }
+
+    // Shape 2: ?q=NAME,ADDRESS — only on /maps* paths
+    if (parsed.pathname.startsWith('/maps')) {
+      const q = parsed.searchParams.get('q')
+      if (q) {
+        const first = q.split(',')[0].trim()
+        // Skip if the first chunk is coords ("48.7,7.2" — extractMapsCoords
+        // already handled that case)
+        if (!/^-?\d+\.?\d*$/.test(first) && first.length > 0) {
+          return first
+        }
+      }
+    }
+
+    return null
   } catch {
     return null
   }
