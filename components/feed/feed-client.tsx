@@ -16,7 +16,7 @@ const ALL_CATS = Object.keys(CATEGORY_LABELS) as Cat[]
  * The page hero is a saturated Finds Green panel that uses the same
  * Fraunces italic wordmark as the top-left brand mark — one typographic
  * voice for "Finds." across the app. Beneath it: a count subtitle ("11
- * things kept."), a search bar, category pills, then the compact rows.
+ * finds."), a search bar, category pills, then the compact rows.
  *
  * The hero panel is the one chromatic puncture per Sagmeister discipline:
  * forest green ground, cream ink, and nothing else fights it.
@@ -99,7 +99,7 @@ export function FeedClient({
   }, [saves, active, query])
 
   const total = saves.length
-  const noun = total === 1 ? 'thing' : 'things'
+  const noun = total === 1 ? 'find' : 'finds'
 
   return (
     <div className="space-y-6">
@@ -158,13 +158,13 @@ export function FeedClient({
             }}
           >
             {total === 0
-              ? 'Nothing kept yet.'
+              ? 'No finds yet.'
               : (
                 <>
                   <span className="tabular-nums" style={{ fontWeight: 600, color: 'var(--color-brand-ink)' }}>
                     {total}
                   </span>{' '}
-                  {noun} kept.
+                  {noun}.
                 </>
               )}
           </p>
