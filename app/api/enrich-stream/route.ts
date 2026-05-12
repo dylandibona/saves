@@ -1,6 +1,7 @@
 import { type NextRequest } from 'next/server'
 import { detectUrlType, extractMapsCoords, extractMapsPlaceName, findCoordsInText, sanitizeUrl } from '@/lib/utils/url-detect'
 import { fetchAndParse, classifyWithClaude, type ExtractedData } from '@/lib/enrichment/enrich'
+import { lookupPlace, type PlaceLookupResult } from '@/lib/enrichment/places'
 import type { Database } from '@/lib/types/supabase'
 
 type SaveCategory = Database['public']['Enums']['save_category']
@@ -81,10 +82,48 @@ export async function POST(request: NextRequest) {
         })
         await sleep(PACE.betweenPhases)
 
-        // ── Phase 3: Claude classifier ────────────────────────────────
-        send('classifying', null)
+        // ── Phase 2.5: Places API lookup (Maps URLs only) ─────────────
+        // For Google Maps URLs we get the real artifact from Places API —
+        // formatted name, address, photo, hours, phone, website, types.
+        // Skipping Claude when Places hits saves a roundtrip and gives
+        // better data anyway.
+        let urlCoords: { lat: number; lng: number } | null = null
+        let mapsPlaceName: string | null = null
+        let place: PlaceLookupResult | null = null
 
-        const claude = hasApiKey
+        if (urlType === 'google_maps') {
+          urlCoords = extractMapsCoords(resolvedUrl) ?? findCoordsInText(html.slice(0, 50_000))
+          mapsPlaceName = extractMapsPlaceName(resolvedUrl)
+          const cleanOg = og.title?.replace(/\s*-\s*Google Maps\s*$/i, '').trim() ?? null
+          const placesQuery = mapsPlaceName ?? cleanOg ?? null
+
+          if (placesQuery) {
+            send('place_looking_up', { query: placesQuery })
+            place = await lookupPlace(placesQuery, urlCoords)
+            if (place) {
+              send('place_found', {
+                name: place.name,
+                address: place.address,
+                photoUrl: place.photoUrl,
+                category: place.category,
+                rating: place.rating,
+              })
+              await sleep(PACE.betweenPhases)
+            }
+          }
+        }
+
+        // ── Phase 3: Claude classifier ────────────────────────────────
+        // Skip Claude entirely when Places already gave us authoritative
+        // data — its category, name, and address are better than what
+        // Claude could infer from the same page.
+        const skipClaude = Boolean(place)
+
+        if (!skipClaude) {
+          send('classifying', null)
+        }
+
+        const claude = !skipClaude && hasApiKey
           ? await classifyWithClaude(
               resolvedUrl,
               og,
@@ -101,28 +140,26 @@ export async function POST(request: NextRequest) {
               extracted: {} as ExtractedData,
             }
 
-        // For Google Maps: extract coords from URL or HTML body
-        let coords: { lat: number; lng: number } | null = null
-        if (urlType === 'google_maps') {
-          coords = extractMapsCoords(resolvedUrl) ?? findCoordsInText(html.slice(0, 50_000))
-        }
+        // Final coords — prefer Places-confirmed location when available
+        const coords: { lat: number; lng: number } | null =
+          place?.coords ?? urlCoords
 
-        // Pick final category — Google Maps falls back to 'place' if Claude fails
+        // Final category — Places types > Claude > 'place' fallback for Maps URLs
         const category: SaveCategory | null =
-          claude.category ?? (urlType === 'google_maps' ? 'place' : null)
+          place?.category ?? claude.category ?? (urlType === 'google_maps' ? 'place' : null)
 
-        // Pick final title — handle Instagram fallbacks + Google Maps place name
-        const finalTitle = pickFinalTitle({
+        // Pick final title — Places name wins, then Instagram fallbacks, then Claude/OG
+        const finalTitle = place?.name ?? pickFinalTitle({
           rawUrl,
           urlType,
           claude,
           og,
-          mapsPlaceName: urlType === 'google_maps' ? extractMapsPlaceName(resolvedUrl) : null,
+          mapsPlaceName,
         })
 
         send('classified', {
           category,
-          confidence: claude.confidence,
+          confidence: place ? 'high' : claude.confidence,
           alternativeCategories: claude.alternativeCategories,
         })
         await sleep(PACE.betweenPhases)
@@ -133,11 +170,17 @@ export async function POST(request: NextRequest) {
           await sleep(PACE.betweenStructured)
         }
 
-        const finalSubtitle = claude.subtitle ?? og.description ?? null
+        // Places-derived subtitle (the formatted address) wins; otherwise
+        // fall back to Claude's inferred subtitle, then the OG description.
+        const finalSubtitle = place?.address ?? claude.subtitle ?? og.description ?? null
         if (finalSubtitle) {
           send('subtitled', { subtitle: finalSubtitle })
           await sleep(PACE.betweenStructured)
         }
+
+        // Hero image — Places photo wins over OG (which for Maps URLs is
+        // just Google's generic map preview).
+        const finalImageUrl = place?.photoUrl ?? og.image ?? null
 
         if (claude.note) {
           send('noted', { note: claude.note })
@@ -145,7 +188,19 @@ export async function POST(request: NextRequest) {
         }
 
         // ── Per-category structured field reveals ───────────────────────
-        const ex = claude.extracted ?? {}
+        // Merge Places-derived fields into the extracted shape so the
+        // detail page renders address/hours/phone/website/priceLevel
+        // without any extra logic.
+        const ex: ExtractedData = {
+          ...(claude.extracted ?? {}),
+          ...(place ? {
+            address:    place.address    ?? undefined,
+            hours:      place.hours      ?? undefined,
+            phone:      place.phone      ?? undefined,
+            website:    place.website    ?? undefined,
+            priceLevel: place.priceLevel ?? undefined,
+          } : {}),
+        }
 
         // Recipe: ingredients (one at a time), then instructions (one at a time)
         if (ex.ingredients?.length) {
@@ -233,11 +288,11 @@ export async function POST(request: NextRequest) {
           title: finalTitle,
           subtitle: finalSubtitle,
           category,
-          imageUrl: og.image,
+          imageUrl: finalImageUrl,
           canonicalUrl: resolvedUrl,
           coords,
           note: claude.note,
-          confidence: claude.confidence,
+          confidence: place ? 'high' : claude.confidence,
           source: urlType === 'google_maps' ? 'google_maps' : hasApiKey ? 'ai' : 'og',
           alternativeCategories: claude.alternativeCategories,
           extracted: ex,

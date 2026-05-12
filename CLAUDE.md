@@ -392,7 +392,8 @@ All household-scoped tables: `is_household_member(hid)` — `SECURITY DEFINER ST
 | `NEXT_PUBLIC_SUPABASE_URL` | yes | Public |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | yes | Public |
 | `SUPABASE_SERVICE_ROLE_KEY` | yes | **Server-only.** Used by `/api/share-save` (no session cookie from Shortcut). Never expose to client. |
-| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | yes for /map | Restrict to `saves.dylandibona.com/*` (currently unrestricted — backlog) |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | yes for /map | Restrict to `finds.dylandibona.com/*` (currently unrestricted — backlog) |
+| `GOOGLE_PLACES_API_KEY` | recommended | **Server-only.** Powers Places API (New) lookup for Google Maps URLs — formatted name, address, photo, hours, phone, website, rating. Without it, Maps URLs fall back to the old OG+Claude path (which barely gives us anything for shortened `maps.app.goo.gl` links). |
 | `ANTHROPIC_API_KEY` | recommended | Without it, enrichment falls back to OG heuristics. Lazy-imported server-side. claude-opus-4-5. |
 | `INBOUND_EMAIL_DOMAIN` | yes | Currently `in.saves.app` placeholder. Sprint 2 will need real domain (Postmark inbound). |
 | `STRIPE_SECRET_KEY` | no (gate open) | **Server-only.** Stripe API calls. Required if `BILLING_ENFORCED=true`. |

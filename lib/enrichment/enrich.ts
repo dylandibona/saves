@@ -15,6 +15,7 @@ import {
   extractMapsPlaceName,
   findCoordsInText,
 } from '@/lib/utils/url-detect'
+import { lookupPlace } from '@/lib/enrichment/places'
 
 type SaveCategory = Database['public']['Enums']['save_category']
 
@@ -386,14 +387,17 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
 
   // ── Google Maps ──────────────────────────────────────────────────────────
   // Fetch + follow redirects to resolve shortened maps.app.goo.gl URLs.
-  // The full URL has @LAT,LNG and /maps/place/NAME embedded.
+  // The full URL has @LAT,LNG and /maps/place/NAME embedded. Then we hand
+  // the place name + coords to Places API for the real data — formatted
+  // name, address, photo, hours, phone, website, rating. OG scraping
+  // alone gives us almost nothing useful for Maps URLs.
   if (urlType === 'google_maps') {
     const fetched = await fetchAndParse(rawUrl)
     const resolvedUrl = fetched?.finalUrl ?? rawUrl
     const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
     const html = fetched?.html ?? ''
 
-    const coords =
+    const urlCoords =
       extractMapsCoords(resolvedUrl) ??
       // Fallback: Google sometimes embeds coords in the page HTML
       findCoordsInText(html.slice(0, 50_000))
@@ -403,27 +407,52 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
     // Clean up Google's "X - Google Maps" suffix from OG title
     const cleanOgTitle = og.title?.replace(/\s*-\s*Google Maps\s*$/i, '').trim() ?? null
 
-    // Use Claude to classify (restaurant/hotel/place/event) — always, since
-    // the keyword heuristic was too weak. Falls back to 'place' if no API key.
-    const claude = hasApiKey
-      ? await classifyWithClaude(resolvedUrl, og, html, 'place')
-      : EMPTY_CLAUDE
+    // Places API — authoritative source for category, photo, address.
+    // Query priority: parsed place name from URL, then OG title cleaned up.
+    const placesQuery = placeName ?? cleanOgTitle ?? null
+    const place = placesQuery
+      ? await lookupPlace(placesQuery, urlCoords)
+      : null
+
+    // Use Places result when available; fall back to Claude classification
+    // only when Places didn't return a hit (rare — name + coords almost
+    // always lands a result inside the 500m bias radius).
+    const claude = place
+      ? EMPTY_CLAUDE
+      : (hasApiKey
+          ? await classifyWithClaude(resolvedUrl, og, html, 'place')
+          : EMPTY_CLAUDE)
 
     const category: SaveCategory =
-      claude.category ?? 'place'
+      place?.category ?? claude.category ?? 'place'
+
+    const coords = place?.coords ?? urlCoords
+
+    // Compose extracted from Places + any Claude extras (notably summary
+    // / notes Claude may have inferred from accompanying text).
+    const placeExtracted: ExtractedData = place
+      ? {
+          address:    place.address    ?? undefined,
+          hours:      place.hours      ?? undefined,
+          phone:      place.phone      ?? undefined,
+          website:    place.website    ?? undefined,
+          priceLevel: place.priceLevel ?? undefined,
+        }
+      : {}
+    const mergedExtracted: ExtractedData = { ...claude.extracted, ...placeExtracted }
 
     return {
-      title: claude.title ?? placeName ?? cleanOgTitle,
-      subtitle: claude.subtitle ?? og.description ?? null,
+      title:    place?.name    ?? claude.title    ?? placeName ?? cleanOgTitle,
+      subtitle: place?.address ?? claude.subtitle ?? og.description ?? null,
       category,
-      imageUrl: og.image,
+      imageUrl: place?.photoUrl ?? og.image,
       canonicalUrl: resolvedUrl,
       coords,
       note: claude.note,
-      confidence: claude.confidence === 'low' ? 'medium' : claude.confidence, // we know it's a place
+      confidence: place ? 'high' : (claude.confidence === 'low' ? 'medium' : claude.confidence),
       source: 'google_maps',
       alternativeCategories: claude.alternativeCategories,
-      extracted: claude.extracted,
+      extracted: mergedExtracted,
     }
   }
 
