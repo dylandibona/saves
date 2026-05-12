@@ -30,13 +30,12 @@ const EASE = { duration: 0.18, ease: 'easeInOut' } as const
  *                    the left, paper-color label. Reads as a chip sitting
  *                    on the page surface.
  *
- * Active (pressed-in): the pill ground becomes a dark tone of the
- *                      category color (~22% cat mixed into bg) and the
- *                      label flips to the bright cat color, with an
- *                      inset shadow so the pill looks recessed into the
- *                      surface. The whole page tints to match (handled
- *                      by the wrapper above), so the chip-press reads as
- *                      "the room caught the chip's color."
+ * Active (pressed-in): the pill takes the FULL saturated category color
+ *                      as its ground with dark text on top, plus an
+ *                      inset shadow so it reads as a saturated chip
+ *                      pressed into the surface. The whole page tints
+ *                      to match (handled below), so the chip-press
+ *                      reads as "the room caught the chip's color."
  */
 function CategoryPill({
   label,
@@ -59,19 +58,15 @@ function CategoryPill({
         height: '28px',
         padding: active ? '0 12px' : '0 12px 0 10px',
         borderRadius: 'var(--radius-pill)',
-        background: active
-          ? `color-mix(in oklch, var(--color-cat-${cat}) 22%, var(--color-bg))`
-          : 'var(--color-surface-2)',
-        color: active
-          ? `var(--color-cat-${cat})`
-          : 'var(--color-paper)',
+        background: active ? `var(--color-cat-${cat})` : 'var(--color-surface-2)',
+        color: active ? 'var(--color-bg)' : 'var(--color-paper)',
         fontFamily: 'var(--font-mono-space)',
         fontSize: '11px',
         textTransform: 'uppercase',
         letterSpacing: '0.08em',
         fontWeight: active ? 600 : 500,
         boxShadow: active
-          ? 'inset 0 1.5px 3px rgba(0,0,0,0.45), inset 0 -1px 0 oklch(1 0 0 / 0.04)'
+          ? 'inset 0 2px 4px rgba(0,0,0,0.35), inset 0 -1px 0 oklch(1 0 0 / 0.10)'
           : 'none',
       }}
     >
@@ -122,16 +117,25 @@ export function FeedClient({
     return r
   }, [saves, active, query])
 
+  // Hero shows the filtered count when a category is active — "1 find"
+  // in the Recipe color when Recipe is selected, "9 finds" in the
+  // default forest green otherwise. The numeral cross-fades on change.
   const total = saves.length
-  const noun = total === 1 ? 'find' : 'finds'
+  const count = active ? filtered.length : total
+  const noun = count === 1 ? 'find' : 'finds'
+  const numeralColor = active
+    ? `var(--color-cat-${active})`
+    : 'oklch(0.70 0.16 152)'
 
   return (
     <div className="relative space-y-6">
-      {/* ── Page-wide wash when a category is active ──────────────────
-          Fades in a soft radial gradient of the active category color
-          from the top of the viewport. Fixed positioning so it survives
-          scroll. pointer-events-none keeps it from intercepting taps.
-          The whole page "catches the color" of the pill that's pressed. */}
+      {/* ── Page-wide tint when a category is active ──────────────────
+          The whole viewport takes on a tone of the active category color.
+          Full-bleed flat fill (not a faint top wash) so the page actually
+          feels themed by the active pill — amber when Restaurant is on,
+          terracotta for Recipe, moss for Place. Fixed positioning
+          survives scroll; pointer-events-none keeps it from blocking
+          taps; -z-10 keeps it behind everything. */}
       <AnimatePresence mode="wait">
         {active && (
           <motion.div
@@ -140,13 +144,10 @@ export function FeedClient({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.45, ease: 'easeOut' }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
             className="pointer-events-none fixed inset-0 -z-10"
             style={{
-              background:
-                `radial-gradient(90% 55% at 50% 0%, ` +
-                `color-mix(in oklch, var(--color-cat-${active}) 22%, transparent), ` +
-                `transparent 65%)`,
+              background: `color-mix(in oklch, var(--color-cat-${active}) 14%, var(--color-bg))`,
             }}
           />
         )}
@@ -184,22 +185,30 @@ export function FeedClient({
             className="flex items-baseline gap-3"
             style={{ lineHeight: 1 }}
           >
-            <span
-              className="tabular-nums"
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontStyle: 'italic',
-                fontVariationSettings: "'opsz' 144, 'wght' 500, 'SOFT' 50",
-                fontSize: '64px',
-                letterSpacing: '-0.04em',
-                /* Brighter forest jewel-tone — --color-brand is tuned as
-                   a ground for cream ink and reads too dim as a figure
-                   on the dark bg. */
-                color: 'oklch(0.70 0.16 152)',
-              }}
-            >
-              {total}
-            </span>
+            {/* Numeral cross-fades on count OR category change. Color
+                tracks the active category (or the default forest green
+                when nothing is filtered). */}
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span
+                key={`${count}-${active ?? 'all'}`}
+                className="tabular-nums"
+                initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
+                transition={{ duration: 0.32, ease: 'easeOut' }}
+                style={{
+                  fontFamily: 'var(--font-serif)',
+                  fontStyle: 'italic',
+                  fontVariationSettings: "'opsz' 144, 'wght' 500, 'SOFT' 50",
+                  fontSize: '64px',
+                  letterSpacing: '-0.04em',
+                  color: numeralColor,
+                  display: 'inline-block',
+                }}
+              >
+                {count}
+              </motion.span>
+            </AnimatePresence>
             <span
               style={{
                 fontFamily: 'var(--font-serif)',
