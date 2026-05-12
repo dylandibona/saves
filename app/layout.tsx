@@ -54,7 +54,7 @@ const silkscreen = Silkscreen({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://saves.dylandibona.com"),
+  metadataBase: new URL("https://finds.dylandibona.com"),
   title: { default: "Finds", template: "%s · Finds" },
   description: "The things you find, kept.",
   manifest: "/manifest.json",

@@ -2,16 +2,13 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { addSave } from './actions'
-import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/utils/time'
+import { CATEGORY_LABELS } from '@/lib/utils/time'
 import { BuildPreview, EMPTY_BUILD_STATE, type BuildState } from '@/components/add/build-preview'
 import type { Database } from '@/lib/types/supabase'
 
 type SaveCategory = Database['public']['Enums']['save_category']
 
 const categories = Object.keys(CATEGORY_LABELS) as SaveCategory[]
-
-const field =
-  'w-full bg-transparent border-0 border-b border-white/15 focus:border-white/45 focus:outline-none py-3 text-white/90 placeholder:text-white/22 transition-colors duration-200 text-base'
 
 // Snapshot of the complete enrichment payload. Drives hidden form fields
 // that get submitted with addSave.
@@ -51,6 +48,10 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
   const noteTouched = useRef(false)
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const streamControllerRef = useRef<AbortController | null>(null)
+  // Guards against re-running enrichment when the URL hasn't actually
+  // changed (e.g. when the user clicks Keep, the URL input loses focus
+  // and previously fired a duplicate enrichment via onBlur).
+  const lastEnrichedRef = useRef<string>('')
 
   // Show category disambiguation when AI was uncertain
   const showDisambig =
@@ -62,7 +63,12 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
 
   // ─── Stream-based enrichment ───────────────────────────────────────
   const runEnrichmentStream = useCallback(async (rawUrl: string) => {
-    if (!rawUrl.startsWith('http')) return
+    const trimmed = rawUrl.trim()
+    if (!trimmed.startsWith('http')) return
+    // Skip if this exact URL was just enriched. Prevents duplicate work
+    // when blur events fire after onChange already triggered enrichment.
+    if (trimmed === lastEnrichedRef.current) return
+    lastEnrichedRef.current = trimmed
 
     // Cancel any in-flight enrichment
     streamControllerRef.current?.abort()
@@ -249,14 +255,32 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Shared input styling — surface-2 background, rounded, focus brightens
+  const inputBase = {
+    background: 'var(--color-surface-2)',
+    color: 'var(--color-paper)',
+    borderRadius: 'var(--radius-md)',
+    border: 'none',
+    width: '100%',
+    fontFamily: 'var(--font-sans)',
+  } as const
+
+  const labelStyle: React.CSSProperties = {
+    fontFamily: 'var(--font-mono-space)',
+    fontSize: '11px',
+    textTransform: 'uppercase',
+    letterSpacing: '0.18em',
+    color: 'var(--color-mute)',
+    display: 'block',
+    marginBottom: '8px',
+  }
+
   return (
-    <form ref={formRef} action={addSave} className="space-y-8">
+    <form ref={formRef} action={addSave} className="space-y-6">
 
       {/* URL field */}
-      <div className="space-y-1.5">
-        <label htmlFor="url" className="font-mono text-[10px] tracking-widest text-white/30">
-          Url — Optional
-        </label>
+      <div>
+        <label htmlFor="url" style={labelStyle}>Url</label>
         <input
           id="url"
           name="url"
@@ -264,13 +288,19 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
           placeholder="https://"
           autoFocus
           value={url}
-          className={field}
-          onBlur={(e) => runEnrichmentStream(e.target.value)}
           onPaste={(e) => {
             const pasted = e.clipboardData.getData('text')
             handleUrlChange(pasted)
           }}
           onChange={(e) => handleUrlChange(e.target.value)}
+          style={{
+            ...inputBase,
+            height: '48px',
+            padding: '0 16px',
+            fontSize: '15px',
+            outline: 'none',
+          }}
+          className="placeholder:text-[var(--color-faint)] focus:ring-2 focus:ring-[oklch(0.50_0.04_95_/_0.4)] transition-shadow"
         />
       </div>
 
@@ -289,10 +319,8 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
       />
 
       {/* Title field */}
-      <div className="space-y-1.5">
-        <label htmlFor="title" className="font-mono text-[10px] tracking-widest text-white/30">
-          Title
-        </label>
+      <div>
+        <label htmlFor="title" style={labelStyle}>Title</label>
         <input
           id="title"
           name="title"
@@ -304,54 +332,93 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
             titleTouched.current = true
             setTitle(e.target.value)
           }}
-          className={`${field} font-serif text-xl`}
+          style={{
+            ...inputBase,
+            height: '52px',
+            padding: '0 16px',
+            fontSize: '18px',
+            fontWeight: 500,
+            outline: 'none',
+            letterSpacing: '-0.01em',
+          }}
+          className="placeholder:text-[var(--color-faint)] focus:ring-2 focus:ring-[oklch(0.50_0.04_95_/_0.4)] transition-shadow"
         />
       </div>
 
       {/* Category */}
       <div className="space-y-3">
         <div className="flex items-baseline justify-between">
-          <p className="font-mono text-[10px] tracking-widest text-white/30">Category</p>
+          <p style={labelStyle}>Category</p>
           {categoryAuto && (
-            <p className="font-mono text-[9px] tracking-wider text-white/20">auto-detected</p>
+            <p
+              className="font-mono"
+              style={{
+                fontSize: '10px',
+                letterSpacing: '0.12em',
+                textTransform: 'uppercase',
+                color: 'var(--color-faint)',
+              }}
+            >
+              auto
+            </p>
           )}
         </div>
 
         {/* Disambiguation prompt — shows when AI was uncertain */}
         {showDisambig && (
           <div
-            className="rounded-xl px-3 py-2.5 space-y-2"
-            style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)' }}
+            className="rounded-md px-3 py-2.5 space-y-2"
+            style={{
+              background: 'var(--color-surface)',
+              borderRadius: 'var(--radius-md)',
+            }}
           >
-            <p className="font-mono text-[10px] text-white/45">
-              Not 100% sure — is it a {CATEGORY_LABELS[selectedCategory]}, or one of these?
+            <p
+              className="font-mono"
+              style={{
+                fontSize: '11px',
+                color: 'var(--color-mute)',
+              }}
+            >
+              Or one of these?
             </p>
             <div className="flex gap-1.5 flex-wrap">
-              {snapshot!.alternativeCategories!.map(cat => {
-                const color = CATEGORY_COLORS[cat] ?? '#888'
-                return (
-                  <button
-                    type="button"
-                    key={cat}
-                    onClick={() => setSelectedCategory(cat)}
-                    className="font-mono text-[10px] px-2.5 py-1 rounded-full transition-colors duration-150"
+              {snapshot!.alternativeCategories!.map(cat => (
+                <button
+                  type="button"
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className="inline-flex items-center gap-1.5 transition-colors duration-150"
+                  style={{
+                    height: '26px',
+                    padding: '0 10px',
+                    borderRadius: 'var(--radius-pill)',
+                    background: 'var(--color-surface-2)',
+                    color: 'var(--color-paper)',
+                    fontFamily: 'var(--font-mono-space)',
+                    fontSize: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  <span
+                    aria-hidden
                     style={{
-                      background: 'rgba(255,255,255,0.04)',
-                      border: `1px solid ${color}66`,
-                      color: color,
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '999px',
+                      background: `var(--color-cat-${cat})`,
                     }}
-                  >
-                    {CATEGORY_LABELS[cat]}
-                  </button>
-                )
-              })}
+                  />
+                  {CATEGORY_LABELS[cat]}
+                </button>
+              ))}
             </div>
           </div>
         )}
 
         <div className="flex gap-2 flex-wrap">
           {categories.map((cat) => {
-            const color = CATEGORY_COLORS[cat]
             const checked = selectedCategory === cat
             return (
               <label key={cat} className="cursor-pointer">
@@ -368,18 +435,29 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
                   className="sr-only peer"
                 />
                 <span
-                  className="chip chip-off block font-mono text-[11px] px-3 py-1.5 rounded-full"
-                  style={
-                    checked
-                      ? {
-                          background: `linear-gradient(180deg, ${color}f0 0%, ${color}cc 55%, ${color}e0 100%)`,
-                          borderColor: color,
-                          color: 'oklch(0.10 0.09 262)',
-                          boxShadow: `0 3px 0 rgba(0,0,0,0.55), 0 5px 16px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.38), inset 0 -1px 0 rgba(0,0,0,0.18)`,
-                        }
-                      : { ['--chip-color' as string]: color }
-                  }
+                  className="inline-flex items-center gap-1.5 transition-all duration-150"
+                  style={{
+                    height: '30px',
+                    padding: '0 12px',
+                    borderRadius: 'var(--radius-pill)',
+                    background: checked ? 'var(--color-bone)' : 'var(--color-surface-2)',
+                    color: checked ? 'var(--color-bg)' : 'var(--color-paper)',
+                    fontFamily: 'var(--font-mono-space)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    fontWeight: 500,
+                  }}
                 >
+                  <span
+                    aria-hidden
+                    style={{
+                      width: '6px',
+                      height: '6px',
+                      borderRadius: '999px',
+                      background: `var(--color-cat-${cat})`,
+                    }}
+                  />
                   {CATEGORY_LABELS[cat]}
                 </span>
               </label>
@@ -389,25 +467,39 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
       </div>
 
       {/* Note field */}
-      <div className="space-y-1.5">
-        <label htmlFor="note" className="font-mono text-[10px] tracking-widest text-white/30">
-          Note — Optional
-        </label>
+      <div>
+        <label htmlFor="note" style={labelStyle}>Note <span className="opacity-50">— optional</span></label>
         <textarea
           id="note"
           name="note"
           rows={3}
-          placeholder={suggestedNote ?? 'Why are you saving this?'}
+          placeholder={suggestedNote ?? 'Why are you keeping this?'}
           value={note}
           onChange={(e) => {
             noteTouched.current = true
             setSuggestedNote(null)
             setNote(e.target.value)
           }}
-          className="w-full bg-transparent border-0 border-b border-white/15 focus:border-white/45 focus:outline-none py-3 text-white/90 placeholder:text-white/22 transition-colors duration-200 text-base resize-none"
+          style={{
+            ...inputBase,
+            padding: '12px 16px',
+            fontSize: '15px',
+            resize: 'none',
+            outline: 'none',
+            lineHeight: 1.5,
+          }}
+          className="placeholder:text-[var(--color-faint)] focus:ring-2 focus:ring-[oklch(0.50_0.04_95_/_0.4)] transition-shadow"
         />
         {suggestedNote && !note && (
-          <p className="font-mono text-[10px] text-white/25 italic leading-relaxed">
+          <p
+            className="italic mt-2"
+            style={{
+              fontFamily: 'var(--font-mono-space)',
+              fontSize: '11px',
+              color: 'var(--color-faint)',
+              lineHeight: 1.5,
+            }}
+          >
             Suggested: {suggestedNote}
           </p>
         )}
@@ -415,7 +507,7 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
 
       {/* Visibility — Shared with household / Just me */}
       <div className="space-y-3">
-        <p className="font-mono text-[10px] tracking-widest text-white/30">Visibility</p>
+        <p style={labelStyle}>Visibility</p>
         <div className="flex gap-2">
           {([
             { value: 'household', label: 'Shared', icon: 'shared' },
@@ -433,26 +525,25 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
                   className="sr-only peer"
                 />
                 <span
-                  className="chip chip-off block font-mono text-[11px] px-4 py-2.5 rounded-full text-center inline-flex items-center justify-center gap-1.5"
-                  style={
-                    active
-                      ? {
-                          background: 'linear-gradient(180deg, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0.10) 60%, rgba(255,255,255,0.06) 100%)',
-                          borderColor: 'rgba(255,255,255,0.40)',
-                          color: 'rgba(255,255,255,0.95)',
-                          boxShadow: '0 3px 0 rgba(0,0,0,0.55), 0 5px 16px rgba(0,0,0,0.40), inset 0 1px 0 rgba(255,255,255,0.32)',
-                        }
-                      : undefined
-                  }
+                  className="block text-center inline-flex items-center justify-center gap-2 transition-all duration-150"
+                  style={{
+                    height: '44px',
+                    padding: '0 16px',
+                    borderRadius: 'var(--radius-md)',
+                    background: active ? 'var(--color-bone)' : 'var(--color-surface-2)',
+                    color: active ? 'var(--color-bg)' : 'var(--color-paper)',
+                    fontSize: '14px',
+                    fontWeight: 500,
+                  }}
                 >
                   {opt.icon === 'shared' ? (
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                       <circle cx="9" cy="7" r="4"/>
                       <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
                     </svg>
                   ) : (
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                       <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                     </svg>
@@ -465,10 +556,21 @@ export function AddForm({ initialUrl = '' }: { initialUrl?: string }) {
         </div>
       </div>
 
-      <div className="pt-2 flex justify-center">
+      {/* Keep button — white pill primary CTA */}
+      <div className="pt-3">
         <button
           type="submit"
-          className="chip chip-off font-mono text-[12px] tracking-wider px-10 py-3 rounded-full hover:!text-white active:scale-95 transition-transform"
+          className="w-full transition-all duration-150 active:scale-[0.98]"
+          style={{
+            height: '52px',
+            borderRadius: 'var(--radius-pill)',
+            background: 'var(--color-bone)',
+            color: 'var(--color-bg)',
+            fontFamily: 'var(--font-sans)',
+            fontSize: '15px',
+            fontWeight: 600,
+            letterSpacing: '-0.01em',
+          }}
         >
           Keep
         </button>

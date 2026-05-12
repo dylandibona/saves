@@ -81,7 +81,7 @@ export default async function SettingsPage() {
               <span className="font-mono text-[10px] text-white/30 mt-0.5">4</span>
               <span>Configure that action:
                 <ul className="mt-2 space-y-1 pl-4 list-disc list-outside marker:text-white/20">
-                  <li>URL: <code className="font-mono text-[11px] text-white/80">https://saves.dylandibona.com/api/share-save</code></li>
+                  <li>URL: <code className="font-mono text-[11px] text-white/80">https://finds.dylandibona.com/api/share-save</code></li>
                   <li>Method: <strong className="text-white/85">POST</strong></li>
                   <li>Headers: add one — Key: <code className="font-mono text-[11px] text-white/80">Authorization</code>, Value: <code className="font-mono text-[11px] text-white/80">Bearer YOUR_TOKEN</code> (paste the token from above where it says YOUR_TOKEN)</li>
                   <li>Request Body: <strong className="text-white/85">JSON</strong></li>
