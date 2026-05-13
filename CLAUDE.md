@@ -330,6 +330,10 @@ supabase/migrations/
   20260504000006_rls.sql               — RLS enabled, all policies
   20260510000001_save_visibility.sql   — visibility enum + created_by; RLS updated
   20260510000002_share_token.sql       — share_token column + generate_share_token() function
+  20260513000001_security_hardening.sql — search_path pinning, REVOKE EXECUTE on
+                                          SECURITY DEFINER functions, stripe_events
+                                          intent comment. Resolves 11 of 25 advisor
+                                          lints; see docs/session-notes-2026-05-13.md.
 
 — gitignored, on disk only —
 huashu-design/             — HTML design skill (use for design-direction work; SKILL.md inside)
