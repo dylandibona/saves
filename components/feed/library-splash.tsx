@@ -26,13 +26,22 @@ import { Sigil } from '@/components/wordmark'
 const SESSION_FLAG = 'finds:library-splash-played'
 
 export function LibrarySplash() {
-  const [visible, setVisible] = useState(false)
+  // Default to visible so the splash renders from SSR onward. Previously
+  // we defaulted to false and flipped to true in useEffect, which caused
+  // a flash: Library paints first → splash appears over it → 1.4s later
+  // splash fades. With visible=true the splash renders BEFORE Library
+  // becomes visible, and useEffect either dismisses it instantly (for a
+  // returning user in this session) or schedules the 1.4s fade-out.
+  const [visible, setVisible] = useState(true)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (window.sessionStorage.getItem(SESSION_FLAG)) return
+    if (window.sessionStorage.getItem(SESSION_FLAG)) {
+      // Returning user this session — dismiss without the hold.
+      setVisible(false)
+      return
+    }
     window.sessionStorage.setItem(SESSION_FLAG, '1')
-    setVisible(true)
     const t = window.setTimeout(() => setVisible(false), 1400)
     return () => window.clearTimeout(t)
   }, [])
