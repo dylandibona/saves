@@ -38,8 +38,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'invalid plan' }, { status: 400 })
     }
 
+    // 2026-05-17 pricing rename: `householdMember` → `household` (the
+    // env var STRIPE_PRICE_ID_HOUSEHOLD takes precedence; the old
+    // _HOUSEHOLD_MEMBER value is read as a fallback inside getPriceIds).
     const prices = getPriceIds()
-    const priceId = plan === 'personal' ? prices.personal : prices.householdMember
+    const priceId = plan === 'personal' ? prices.personal : prices.household
     if (!priceId) {
       console.error('[checkout] price not configured', { plan })
       return NextResponse.json(

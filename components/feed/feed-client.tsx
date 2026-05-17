@@ -85,7 +85,7 @@ export function FeedClient({
             <>
               <span style={{ fontWeight: 400 }}>{total} </span>
               <span className="font-serif-display" style={{ fontSize: 22 }}>
-                kept
+                Finds
               </span>
               <span style={{ color: 'var(--color-mute)' }}>.</span>
             </>

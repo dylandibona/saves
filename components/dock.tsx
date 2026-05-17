@@ -188,14 +188,18 @@ function NavIcon({
         <circle cx="10" cy="8.3" r="1.6" stroke={c} strokeWidth="1.2" />
       </svg>
     ) : (
-      <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
-        <circle cx="10" cy="10" r="2.4" stroke={c} strokeWidth="1.2" />
+      // Proper gear — eight teeth around a center circle (not a sunburst).
+      // The previous version was a circle with 8 radial lines; that reads
+      // as brightness, not as settings.
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
-          d="M10 3v2.4M10 14.6V17M3 10h2.4M14.6 10H17M5.05 5.05l1.7 1.7M13.25 13.25l1.7 1.7M5.05 14.95l1.7-1.7M13.25 6.75l1.7-1.7"
+          d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
           stroke={c}
-          strokeWidth="1.2"
+          strokeWidth="1.4"
           strokeLinecap="round"
+          strokeLinejoin="round"
         />
+        <circle cx="12" cy="12" r="3" stroke={c} strokeWidth="1.4" />
       </svg>
     )
   return (

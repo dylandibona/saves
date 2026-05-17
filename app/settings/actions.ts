@@ -126,11 +126,19 @@ export async function renameHousehold(name: string) {
     throw new Error('Only the household owner can rename')
   }
 
-  const { error } = await supabase
+  // Use `.select()` so the response carries back the updated rows. A
+  // silent RLS denial (rows-matched=0) shows up as an empty array — we
+  // surface that as an explicit error instead of returning a stale
+  // success that masks the failure (the bug Dylan hit pre-RLS-fix).
+  const { data: updated, error } = await supabase
     .from('households')
     .update({ name: trimmed })
     .eq('id', householdId)
+    .select('id, name')
   if (error) throw new Error(error.message)
+  if (!updated || updated.length === 0) {
+    throw new Error('Rename was not saved — your account may not have owner permission on this household.')
+  }
   revalidatePath('/settings')
   return trimmed
 }

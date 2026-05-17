@@ -302,13 +302,13 @@ export default async function BillingPage({
             <PlanCard
               name={PLANS.personal.label}
               price="$4 / mo"
-              tagline="Unlimited finds. Share extension. Email-in."
+              tagline="Unlimited finds. One person."
               current={plan === 'personal'}
             />
             <PlanCard
               name={PLANS.household_member.label}
-              price="$2 / mo"
-              tagline="When invited by a Personal subscriber."
+              price="$8 / mo"
+              tagline="Up to 4 people sharing one library."
               current={plan === 'household_member'}
             />
           </div>

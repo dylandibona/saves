@@ -46,10 +46,10 @@ export function SubscriptionSection({
 
   // Help-text copy varies by state.
   const help = isHouseholdMember
-    ? `You're a household member. Your seat is covered by ${ownerName ?? 'the household owner'}.`
+    ? `You're part of ${ownerName ?? 'a household'}'s shared library. Billing handled by them.`
     : isPersonal
       ? "You're on Personal. Unlimited finds, all features."
-      : "You're on the free plan — 12 finds, all features. Personal is $4/mo unlimited; household members 50% off."
+      : "You're on the free plan — 12 finds, all features. Personal is $4/mo. Household is $8/mo for up to 4 people sharing one library."
 
   // Plan card — left side label + status line.
   const planLabel = isHouseholdMember
