@@ -24,9 +24,8 @@ import { usePathname, useRouter } from 'next/navigation'
  * Visible on every page except:
  *   • /login + /auth/* + /join/* — no chrome on auth surfaces
  *   • /add — Capture's Keep button owns the bottom action slot
- *
- * Visible on /saves/[id] — Detail's Open original / Options bar makes
- * room on its right edge for the dock. See app/saves/[id]/options-popup.tsx.
+ *   • /saves/[id] — Detail's Open original / Options bar owns the
+ *     bottom action slot; the dock would be visual overload there.
  */
 
 const HIDDEN_ON: Array<(p: string) => boolean> = [
@@ -34,6 +33,7 @@ const HIDDEN_ON: Array<(p: string) => boolean> = [
   (p) => p.startsWith('/auth'),
   (p) => p.startsWith('/join'),
   (p) => p.startsWith('/add'),
+  (p) => p.startsWith('/saves/'),
 ]
 
 export function Dock() {

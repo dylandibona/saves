@@ -332,19 +332,8 @@ export function MapClient({ saves }: { saves: MapSave[] }) {
             gap: 8,
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
             <Sigil size={20} />
-            <span
-              style={{
-                fontFamily: 'var(--font-sans), Instrument Sans, system-ui, sans-serif',
-                fontSize: 13,
-                fontWeight: 500,
-                color: 'var(--color-paper)',
-                letterSpacing: '-0.005em',
-              }}
-            >
-              Finds
-            </span>
           </div>
           <span
             style={{

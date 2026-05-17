@@ -19,36 +19,23 @@ const LOGO_ASPECT = LOGO_VIEWBOX_W / LOGO_VIEWBOX_H  // ~0.7733
 
 type Props = {
   size?: number
-  showWord?: boolean
   onReset?: () => void
 }
 
-export function Wordmark({ size = 22, showWord = true, onReset }: Props) {
-  const content = (
-    <>
-      <Sigil size={size} />
-      {showWord && (
-        <span
-          className="font-semibold-ui"
-          style={{
-            fontSize: 13,
-            fontWeight: 500,
-            color: 'var(--color-paper)',
-            letterSpacing: '-0.005em',
-          }}
-        >
-          Finds
-        </span>
-      )}
-    </>
-  )
-
+/**
+ * Wordmark — historically the sigil + "Finds" text together. The text
+ * was dropped 2026-05-17: the logomark is recognizable enough on its
+ * own and the wordmark + sigil pair felt redundant. Component is kept
+ * (name and all) so existing consumers don't break — it now just
+ * renders the Sigil with an optional reset wrapper.
+ */
+export function Wordmark({ size = 22, onReset }: Props) {
   if (onReset) {
     return (
       <button
         type="button"
         onClick={onReset}
-        className="inline-flex items-center gap-2"
+        className="inline-flex items-center"
         style={{
           background: 'transparent',
           border: 0,
@@ -59,12 +46,12 @@ export function Wordmark({ size = 22, showWord = true, onReset }: Props) {
         }}
         aria-label="Reset view"
       >
-        {content}
+        <Sigil size={size} />
       </button>
     )
   }
 
-  return <span className="inline-flex items-center gap-2">{content}</span>
+  return <Sigil size={size} />
 }
 
 /**
