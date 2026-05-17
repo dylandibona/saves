@@ -488,6 +488,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          enrichment_errors: Json | null
           external_ids: Json
           hero_image_url: string | null
           household_id: string
@@ -510,6 +511,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          enrichment_errors?: Json | null
           external_ids?: Json
           hero_image_url?: string | null
           household_id: string
@@ -532,6 +534,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          enrichment_errors?: Json | null
           external_ids?: Json
           hero_image_url?: string | null
           household_id?: string

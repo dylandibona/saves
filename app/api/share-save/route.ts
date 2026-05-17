@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createClient as createServiceClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@/lib/types/supabase'
-import { enrichUrl } from '@/lib/enrichment/enrich'
+import { enrichUrl, deriveEnrichmentErrors } from '@/lib/enrichment/enrich'
 import { sanitizeUrl } from '@/lib/utils/url-detect'
 import { userCanSave } from '@/lib/billing/can-save'
 
@@ -134,6 +134,7 @@ export async function POST(request: NextRequest) {
     if (existing) {
       saveId = existing.id
     } else {
+      const errors = deriveEnrichmentErrors(enriched)
       const { data: newSave, error: insertErr } = await supabase
         .from('saves')
         .insert({
@@ -147,6 +148,7 @@ export async function POST(request: NextRequest) {
           visibility: 'household',
           created_by: userId,
           ...(Object.keys(canonicalData).length > 0 ? { canonical_data: canonicalData } : {}),
+          ...(errors ? { enrichment_errors: errors as unknown as Json } : {}),
         })
         .select('id')
         .single()

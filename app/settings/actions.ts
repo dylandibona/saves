@@ -89,6 +89,43 @@ export async function createHouseholdInviteCode(input: {
 }
 
 /**
+ * Rename the household the current user owns. RLS limits the update
+ * to households where the caller is an `owner` member (enforced below
+ * via membership check + the household_id filter).
+ */
+export async function renameHousehold(name: string) {
+  const trimmed = name.trim()
+  if (!trimmed) throw new Error('Name cannot be empty')
+  if (trimmed.length > 60) throw new Error('Name must be 60 characters or fewer')
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const householdId = await getHouseholdId()
+  if (!householdId) throw new Error('No household')
+
+  // Owner-only rename. Members shouldn't be able to relabel the shared place.
+  const { data: membership } = await supabase
+    .from('household_members')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('household_id', householdId)
+    .single()
+  if (membership?.role !== 'owner') {
+    throw new Error('Only the household owner can rename')
+  }
+
+  const { error } = await supabase
+    .from('households')
+    .update({ name: trimmed })
+    .eq('id', householdId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/settings')
+  return trimmed
+}
+
+/**
  * Revoke (delete) an invite code. RLS limits to codes you created.
  */
 export async function revokeInviteCode(code: string) {

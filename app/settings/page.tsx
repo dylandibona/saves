@@ -5,6 +5,7 @@ import { requireUser } from '@/lib/auth/require-user'
 import { TokenSection } from './token-section'
 import { InvitesSection } from './invites-section'
 import { TestersSection } from './testers-section'
+import { HouseholdSection } from './household-section'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Settings' }
@@ -30,6 +31,23 @@ export default async function SettingsPage() {
   // Sorted by closest-to-expiry first. Powers the "Testers" panel where
   // you organize the conversion moment as paid plans approach.
   const { data: testers } = await supabase.rpc('list_acquired_users')
+
+  // Current household + role + member count for the household section
+  // header copy and rename-button gating.
+  const { data: myMembership } = await supabase
+    .from('household_members')
+    .select('household_id, role')
+    .eq('user_id', user!.id)
+    .single()
+  const { data: household } = myMembership
+    ? await supabase.from('households').select('name').eq('id', myMembership.household_id).single()
+    : { data: null as { name: string } | null }
+  const { count: memberCount } = myMembership
+    ? await supabase
+        .from('household_members')
+        .select('user_id', { count: 'exact', head: true })
+        .eq('household_id', myMembership.household_id)
+    : { count: 0 }
 
   // Resolve absolute origin for share links. Vercel sets x-forwarded-host /
   // x-forwarded-proto; locally we fall back to NEXT_PUBLIC_SITE_URL or
@@ -73,6 +91,14 @@ export default async function SettingsPage() {
             Your <span className="font-serif italic font-normal">place</span>.
           </h1>
         </header>
+
+        {household?.name && (
+          <HouseholdSection
+            initialName={household.name}
+            isOwner={myMembership?.role === 'owner'}
+            memberCount={memberCount ?? 1}
+          />
+        )}
 
         <InvitesSection
           initialCodes={(codes ?? []).filter(

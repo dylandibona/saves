@@ -70,6 +70,12 @@ export type ExtractedData = {
   artist?: string
 }
 
+export type EnrichmentError = {
+  ts: string
+  phase: 'fetch' | 'oembed' | 'classify' | 'places'
+  message: string
+}
+
 export type EnrichedUrl = {
   title: string | null
   subtitle: string | null
@@ -84,6 +90,9 @@ export type EnrichedUrl = {
   alternativeCategories?: SaveCategory[]
   // Per-category structured data — the save IS the artifact, not a bookmark.
   extracted?: ExtractedData
+  // Warnings recorded during enrichment. Persisted to saves.enrichment_errors
+  // when present. Used for post-hoc triage of capture failures.
+  errors?: EnrichmentError[]
 }
 
 // ─── Fetch + OG parser ────────────────────────────────────────────────────────
@@ -194,6 +203,39 @@ export async function fetchAndParse(url: string): Promise<FetchResult | null> {
   } catch {
     return null
   }
+}
+
+// ─── Error derivation ─────────────────────────────────────────────────────────
+// Observe a finished EnrichedUrl and synthesize error entries from the
+// fallback signals. Cheap, no rewrite of the branchy enrichUrl required —
+// the rule is: low confidence + heuristic source ≈ something went wrong.
+
+export function deriveEnrichmentErrors(e: EnrichedUrl): EnrichmentError[] | null {
+  const errors: EnrichmentError[] = []
+  const ts = new Date().toISOString()
+
+  if (e.source === 'heuristic') {
+    errors.push({
+      ts,
+      phase: 'fetch',
+      message: 'No OG metadata returned; falling back to URL-only heuristics.',
+    })
+  }
+  if (e.title === null) {
+    errors.push({
+      ts,
+      phase: 'classify',
+      message: 'No title resolved; user will need to set one manually.',
+    })
+  }
+  if (e.category === null) {
+    errors.push({
+      ts,
+      phase: 'classify',
+      message: 'No category resolved; user will need to pick one.',
+    })
+  }
+  return errors.length > 0 ? errors : null
 }
 
 // ─── oEmbed (YouTube / TikTok / Spotify) ──────────────────────────────────────
@@ -391,11 +433,17 @@ Rules:
 - For Instagram posts, the OG description is often the caption — read it carefully for workout sets, recipe ingredients, etc.
 - Keep summaries to 2-3 sentences max, no preamble.`
 
-    const msg = await client.messages.create({
-      model: 'claude-opus-4-5',
-      max_tokens: 1500,
-      messages: [{ role: 'user', content: prompt }],
-    })
+    // 20s hard cap. Anthropic Opus 4.5 usually responds in 2–4s; anything
+    // beyond 20s is almost certainly a hung connection. Failing fast gives
+    // the user OG-only fallback rather than a spinner stuck forever.
+    const msg = await client.messages.create(
+      {
+        model: 'claude-opus-4-5',
+        max_tokens: 1500,
+        messages: [{ role: 'user', content: prompt }],
+      },
+      { timeout: 20_000 },
+    )
 
     const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
     const cleaned = text.replace(/```(?:json)?\n?/g, '').trim()
