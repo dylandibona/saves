@@ -11,7 +11,37 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 ---
 
-## 1. Capture flow at full quality — `now` — XL
+## 0. Stratum v2 design rollout — `now` — XL
+
+**Why:** Claude Design delivered a full visual reset for Library, Capture, and Detail. The current orb-based jewel-tone theme is out; in: Instrument Sans / Instrument Serif Italic / Martian Mono, radial sapphire background, 4px max border radius, single-row drag-scroll category strip, closed-by-default floating dock, italic-serif title moment reserved for single-Find emphasis. Handoff in `_design input/design_handoff_finds_stratum_v2/`.
+
+**Scope (top to bottom of the suggested rollout):**
+
+1. Google fonts swap in `app/layout.tsx`. Drop the Pixelify Sans / VT323 / Silkscreen triplet. Drop the AnimatedWordmark component.
+2. New design tokens in `app/globals.css`. Remove orb keyframes; new radial sapphire wash. Replace `CATEGORY_COLORS` with the new oklch tones.
+3. New `Wordmark` sigil component (3 offset rounded rectangles + "Finds" sans).
+4. `feed-client.tsx` rebuild — count line, drag-scroll category strip, tighter cards.
+5. `save-card.tsx` rebuild — drop saver pill, fold identity into meta line.
+6. `nav.tsx` → new floating dock (closed +, opens to 3 icons, scroll-fades).
+7. `add-form.tsx` + `build-preview.tsx` rebuild — centered mono phase verb, italic-serif title swap on resolve, ENRICHED callout, category-tinted Keep button.
+8. `saves/[id]/page.tsx` rebuild — full-bleed hero, italic-serif title, Options popup with Delete moved inside, KEPT timestamp chip.
+9. Apply "in spirit" to surfaces NOT explicitly designed: settings, billing, login, map, join, share. Use the new tokens; don't reinvent layouts.
+10. Type-check + build before pushing.
+
+**Out of scope this pass** (per handoff §6): Map view design, Settings hi-fi, Tonight, Trip, Cellar, Onboarding/Login hi-fi, Recategorize picker, Edit flow. These get separate design passes later.
+
+**Done when:**
+- Every screen reads in the same visual language. No more orbs or pixel-font wordmark.
+- Library cards present a meta line with category·time·initials (no saver pills).
+- Capture flows from mono phase verb → italic serif title → ENRICHED callout → Keep button.
+- Detail page reads like an article, not chrome.
+- Type-check passes; build passes; new design works on mobile (375px) and desktop (≥1024px).
+
+**Risks:** large surface area; multiple components touched simultaneously. Mitigation: rollout in the order above and type-check between steps so we're never on a broken main for long.
+
+---
+
+## 1. Capture flow at full quality — `next` — XL  *(coverage push done; signature animation done)*
 
 **Why:** This is the signature moment of the product. Per STRATEGY §"The five signature flows" — capture is the gateway and the first impression. Current capture works but doesn't have the live-build animation or the share-from-anywhere experience.
 
@@ -27,6 +57,9 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 ### 3b. PWA Share Target validation — S
 - Manifest already exists. Install Finds as PWA on real iOS device, test share-from-Instagram flow end-to-end. Document gotchas.
+
+### 3.1 Media-type coverage — **DONE** ✓
+- YouTube (oEmbed + Claude with `'video'` hint — no more hardcoded `'noted'`), TikTok (oEmbed + Slackbot UA + `@handle` subtitle), Spotify (oEmbed + path-kind extraction → music vs podcast), Apple Music, Apple Podcasts, Letterboxd, Goodreads. `ClassifyHint` union extended; new helpers in `lib/utils/url-detect.ts`. Twitter/X intentionally skipped — low scrape success.
 
 ### 3c. Email-in capture — M
 - Postmark inbound webhook → parses email body for URLs → creates save via `/api/share-save` flow.
@@ -157,6 +190,7 @@ See `CLAUDE.md` §7 for the full list of nice-to-haves that aren't priority enou
 
 Items that shipped. Newest first.
 
+- **2026-05-17 — Capture coverage + invite/household + trial warnings + household naming + Phase 2 polish.** YouTube/TikTok/Spotify/Apple/Letterboxd/Goodreads media-type branches in enrichment. `invite_codes` table with two kinds (`app` for strangers grants 90-day Personal trial + stamps `users.acquired_via_code` cohort; `household` joins inviter's household — link is sufficient credential). `/settings` InvitesSection + TestersSection (color-coded urgency). `/join/[code]` landing. `/billing` hidden for members + trial countdown banner. `handle_new_user` trigger renames household defaults to `"{Name}'s finds"`; Dylan's renamed to "Family". `HouseholdSection` rename UI (owner-only). `saves.enrichment_errors` jsonb for triage. 20s Anthropic timeout. Five migrations: 20260517000001..05. See `docs/session-notes-2026-05-17.md`.
 - **Live capture-build animation (first pass)** — `/api/enrich-stream` SSE endpoint with phased events. `BuildPreview` component materializes the save card live as enrichment streams in. Hero image fade + scale, category chip bloom, staggered list-item reveals for structured fields. Pacing tunable. Enrichment internals extracted from Server Action into `lib/enrichment/enrich.ts` so the route can call them in phases.
 - **Stripe gate architecture (open lock)** — Migration `20260511000001_stripe_billing`. `users.stripe_customer_id` + `subscription_status` + `subscription_plan` + `subscription_current_period_end` columns. `stripe_events` table with event-id PK for idempotent webhooks. `lib/billing/stripe.ts` client (server-only), `lib/billing/can-save.ts` helper that returns `{ok:true}` while `BILLING_ENFORCED !== 'true'`. `/api/stripe-webhook` with signature verification + idempotent processing of `checkout.session.completed` / `customer.subscription.{created,updated,deleted}` / `invoice.payment_failed`. `/api/checkout` initiates Checkout sessions with auto-customer-creation. `/billing` page (URL-only, no nav link) surfaces current plan + tier comparison + gate-open notice. `userCanSave` is the single gate hook called from `addSave` and `/api/share-save`.
 - **Save visibility (Shared / Just me)** — Migration `20260510000001_save_visibility`. Per-save visibility with RLS-enforced privacy. Schema, UI toggle, lock icon, detail page treatment all live.

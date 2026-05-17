@@ -5,65 +5,65 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ────────────────────────────────────────────────────────────────────
-   FINDS DESIGN SYSTEM
-   See docs/design-direction.md for philosophy + reasoning.
-   See docs/component-specs.md for component-level specs.
-
-   Lineage: Kenya Hara's emptiness (warm paper-ink bowl) +
-   Sagmeister's discipline (one saturated green moment per surface).
+   FINDS — Stratum v2 design tokens (2026-05-17)
+   See docs/stratum-v2-target/README.md for the success-mode rubric and
+   _design input/design_handoff_finds_stratum_v2/ for the canonical
+   handoff. Italic serif is reserved for single-Find title moments
+   (Capture once resolved, Detail). Roundness is capped at 4px on every
+   surface except 999px glyph dots.
    ──────────────────────────────────────────────────────────────────── */
 
 @theme {
-  /* ── Surface tones — warm paper-ink, not tech-black ──────────────── */
-  --color-bg:         oklch(0.14 0.005 95);   /* the bowl */
-  --color-surface:    oklch(0.18 0.006 95);   /* save cards, modals */
-  --color-surface-2:  oklch(0.22 0.007 95);   /* hover, inputs, sheet headers */
-  --color-hairline:   oklch(0.30 0.008 95);   /* borders only when structurally required */
-
-  /* ── The signature — Finds Green ─────────────────────────────────── */
-  --color-brand:      oklch(0.42 0.09 155);   /* deep forest. Full-bleed only. */
-  --color-brand-ink:  oklch(0.95 0.02 95);    /* cream ink that sits on brand */
+  /* ── Surface tones — paper-cream on deep sapphire ────────────────── */
+  --color-bg:         #08080b;
+  --color-surface:    rgba(255, 255, 255, 0.04);
+  --color-surface-2:  rgba(244, 243, 239, 0.06);
+  --color-hairline:   rgba(244, 243, 239, 0.08);
 
   /* ── Type colors ─────────────────────────────────────────────────── */
-  --color-bone:       oklch(0.97 0.012 95);   /* CTA fill — paper-cream, never pure white */
-  --color-paper:      oklch(0.88 0.02 80);    /* primary body text */
-  --color-mute:       oklch(0.62 0.015 95);   /* secondary, metadata */
-  --color-faint:      oklch(0.42 0.012 95);   /* tertiary, disabled */
+  --color-bone:       #f4f3ef;                 /* CTA fill — cream */
+  --color-paper:      #f4f3ef;                 /* primary body text */
+  --color-mute:       rgba(244, 243, 239, 0.55); /* secondary, metadata */
+  --color-faint:      rgba(244, 243, 239, 0.40); /* tertiary, disabled */
 
-  /* Category accents live OUTSIDE @theme — see the :root block below.
-     Tailwind v4 tree-shakes theme vars that aren't referenced by any
-     utility class. We use category colors only via `var()` in inline
-     styles (chip dots, marker fills, bookplate letterforms), so theme
-     emission strips them. Keeping them on :root keeps them in the
-     bundle unconditionally. */
+  /* Brand alias kept for back-compat with surfaces not yet rebuilt.
+     During the Stratum v2 rollout the visual signature is per-category
+     tones, not a single brand color. */
+  --color-brand:      #f4f3ef;
+  --color-brand-ink:  #08080b;
 
   /* ── State colors ────────────────────────────────────────────────── */
-  --color-danger:     oklch(0.62 0.20 22);     /* ruby */
+  --color-danger:     oklch(0.7 0.17 22);       /* the Options-popup delete tone */
 
-  /* ── Radius scale ────────────────────────────────────────────────── */
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 18px;
-  --radius-xl: 24px;
-  --radius-pill: 999px;
+  /* ── Radius scale — Stratum v2 hard cap at 4px ───────────────────── */
+  --radius-sm:   4px;
+  --radius-md:   4px;
+  --radius-lg:   4px;
+  --radius-xl:   4px;
+  --radius-pill: 999px;                          /* only for glyph dots */
 
-  /* ── Fonts — Bricolage Grotesque variable + Fraunces + Space Mono ── */
-  /* `--font-sans` is wired via next/font in layout.tsx with axes
-     [wdth, opsz]. Bind opsz=auto in @layer base so body and display use
-     the right optical size automatically. Heading classes also pin wght
-     and wdth explicitly. */
-  --font-mono: var(--font-mono-space), ui-monospace, monospace;
-  --font-serif: var(--font-fraunces), "Georgia", ui-serif, serif;
+  /* ── Font role tokens ────────────────────────────────────────────── */
+  /* layout.tsx wires:
+        --font-sans   → Instrument Sans (weights 400, 500, 600)
+        --font-serif  → Instrument Serif (weight 400, normal + italic)
+        --font-mono   → Martian Mono (weights 400, 500)
+     These role names are referenced via the .font-* helpers below. */
+
+  /* ── Motion ──────────────────────────────────────────────────────── */
+  --ease-strat: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-hover:  240ms;
+  --dur-layout: 320ms;
+  --dur-hero:   520ms;
 }
 
-/* Shadcn + Tailwind v3-style tokens kept as aliases for back-compat with
-   any remaining shadcn/ui components that haven't been refactored yet. */
+/* Shadcn / Tailwind aliases — keep so any remaining shadcn primitives
+   render in the new palette without per-component rewrites. */
 @theme inline {
   --color-background: var(--color-bg);
   --color-foreground: var(--color-paper);
   --color-border: var(--color-hairline);
   --color-input: var(--color-surface-2);
-  --color-ring: oklch(0.50 0.04 95);
+  --color-ring: rgba(244, 243, 239, 0.20);
   --color-primary: var(--color-bone);
   --color-primary-foreground: var(--color-bg);
   --color-muted: var(--color-surface);
@@ -76,103 +76,102 @@
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   Category accents — jewel-tones tuned warm.
-   Used as small dots beside titles or chip fills. Never card grounds.
-   These sit on :root rather than inside @theme so Tailwind v4 doesn't
-   tree-shake them out of the bundle (they're only referenced via
-   var() in inline styles, not as utility classes).
+   Per-category tones — Stratum v2 palette (oklch L≈0.7 C≈0.14)
+   Used as leading edges, dots, accent rules — never as chip fills.
+   Lives on :root so Tailwind v4 doesn't tree-shake (consumed only via
+   var() in inline styles).
    ──────────────────────────────────────────────────────────────────── */
 :root {
-  --color-cat-recipe:     oklch(0.62 0.16 35);   /* terracotta */
-  --color-cat-tv:         oklch(0.50 0.14 280);  /* dusk violet */
-  --color-cat-movie:      oklch(0.45 0.12 25);   /* oxblood */
-  --color-cat-restaurant: oklch(0.66 0.14 70);   /* amber */
-  --color-cat-hotel:      oklch(0.55 0.08 200);  /* slate teal */
-  --color-cat-place:      oklch(0.60 0.10 145);  /* moss */
-  --color-cat-event:      oklch(0.65 0.16 350);  /* rose */
-  --color-cat-book:       oklch(0.50 0.10 80);   /* tobacco */
-  --color-cat-podcast:    oklch(0.55 0.12 320);  /* orchid */
-  --color-cat-music:      oklch(0.60 0.13 220);  /* ink blue */
-  --color-cat-article:    oklch(0.70 0.04 95);   /* paper gray */
-  --color-cat-product:    oklch(0.65 0.10 50);   /* sand */
-  --color-cat-workout:    oklch(0.62 0.16 130);  /* fern */
-  --color-cat-noted:      oklch(0.55 0.02 95);   /* graphite */
+  --color-cat-recipe:     oklch(0.72 0.16 38);
+  --color-cat-restaurant: oklch(0.74 0.14 75);
+  --color-cat-hotel:      oklch(0.66 0.13 195);
+  --color-cat-place:      oklch(0.70 0.13 155);
+  --color-cat-movie:      oklch(0.62 0.14 25);
+  --color-cat-tv:         oklch(0.68 0.15 270);
+  --color-cat-book:       oklch(0.60 0.13 60);
+  --color-cat-article:    oklch(0.75 0.04 90);
+  --color-cat-podcast:    oklch(0.68 0.15 295);
+  --color-cat-music:      oklch(0.70 0.13 215);
+  --color-cat-workout:    oklch(0.72 0.18 132);
+  --color-cat-product:    oklch(0.70 0.12 50);
+  --color-cat-event:      oklch(0.70 0.14 340);
+  --color-cat-noted:      oklch(0.78 0.02 100);
 }
 
 @layer base {
   * { border-color: var(--color-hairline); }
 
   html {
-    font-family: var(--font-sans);
-    /* Bricolage Grotesque has an opsz axis — let the browser pick the
-       right optical size automatically based on font-size. This is the
-       whole reason we picked this face over Geist. */
-    font-optical-sizing: auto;
-    /* Slightly condense at default; display headings will tighten further. */
-    font-variation-settings: 'wdth' 100;
+    font-family: var(--font-sans), system-ui, sans-serif;
   }
 
   body {
+    /* Static radial sapphire wash — the new background. The wash fades
+       from a soft sapphire glow at the top to near-black below. No
+       animated orbs, no grain. The handoff calls grain "optional";
+       skipping it keeps the body clean and easier to compose against. */
     background-color: var(--color-bg);
+    background-image: radial-gradient(
+      140% 90% at 50% -20%,
+      oklch(0.22 0.08 260) 0%,
+      var(--color-bg) 60%
+    );
+    background-attachment: fixed;
     color: var(--color-paper);
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1.5;
     letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Ensure nothing peeks behind the bottom tab bar */
     padding-bottom: env(safe-area-inset-bottom);
   }
 
-  /* Fraunces — accent only. One italic word per surface, ever. */
+  /* ── Typography helpers ───────────────────────────────────────────── */
+
+  /* Editorial italic — Stratum v2's single editorial moment per surface.
+     Use this ONLY on the Capture title (once resolved) and the Detail
+     page title. Never on cards, never on chips, never on UI. */
   .font-serif {
-    font-family: var(--font-serif);
-    font-variation-settings: 'opsz' 144, 'wght' 400;
-  }
-
-  .font-serif-display {
-    font-family: var(--font-serif);
+    font-family: var(--font-serif), ui-serif, Georgia, serif;
     font-style: italic;
-    font-variation-settings: 'opsz' 144, 'wght' 500, 'SOFT' 50;
+    font-weight: 400;
+  }
+  .font-serif-display {
+    font-family: var(--font-serif), ui-serif, Georgia, serif;
+    font-style: italic;
+    font-weight: 400;
+    letter-spacing: -0.025em;
   }
 
-  /* Display heading — Bricolage variable at heavy weight, slightly
-     condensed (wdth 88), tighter tracking. The opsz axis kicks the
-     letterforms into editorial-display mode automatically at this size. */
+  /* Sans display — Instrument Sans at weight 500, slightly tightened.
+     Replaces the previous heavy Bricolage display heading. */
   .font-display {
-    font-family: var(--font-sans);
-    font-weight: 700;
-    font-variation-settings: 'wght' 700, 'wdth' 88, 'opsz' 96;
-    letter-spacing: -0.035em;
-    line-height: 1.02;
-  }
-
-  /* Semibold UI label — buttons, section heads, identity pills, etc. */
-  .font-semibold-ui {
-    font-family: var(--font-sans);
-    font-weight: 600;
-    font-variation-settings: 'wght' 600, 'wdth' 100;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-weight: 500;
     letter-spacing: -0.01em;
   }
 
-  /* Body weight, slightly tightened at smaller sizes via opsz auto */
+  .font-semibold-ui {
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+
   .font-body {
-    font-family: var(--font-sans);
+    font-family: var(--font-sans), system-ui, sans-serif;
     font-weight: 400;
-    font-variation-settings: 'wght' 400, 'wdth' 100;
+  }
+
+  .font-mono {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-weight: 400;
+    letter-spacing: 0.12em;
   }
 }
 
 /* ────────────────────────────────────────────────────────────────────
-   The wordmark cycle (cold-launch only signature motion)
-   ──────────────────────────────────────────────────────────────────── */
-@keyframes wordmark-glow {
-  0%, 100% { text-shadow: none; }
-  50%      { text-shadow: 0 0 24px rgba(245, 241, 234, 0.18); }
-}
-
-/* ────────────────────────────────────────────────────────────────────
-   Conic-gradient border for the live-build preview (component spec §9)
+   Live-build preview spinning border — kept for now; Step 5 (Capture
+   rebuild) will revisit whether the new build-state UX still needs it.
    ──────────────────────────────────────────────────────────────────── */
 @property --build-angle {
   syntax: '<angle>';

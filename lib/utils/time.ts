@@ -29,20 +29,29 @@ export const CATEGORY_LABELS: Record<string, string> = {
   noted:      'Note',
 }
 
-/** Vivid jewel-tone accents — max saturation, designed to glow on deep dark */
+/**
+ * Stratum v2 category tones (2026-05-17).
+ *
+ * All tuned to oklch L≈0.7 C≈0.14 so the per-category accents harmonize
+ * with each other on the sapphire background. Used as leading edges,
+ * dots, single-line accent rules — never as fills.
+ *
+ * Mirrored in app/globals.css (`--color-cat-*`) so the values are
+ * available both as CSS variables and as JS strings.
+ */
 export const CATEGORY_COLORS: Record<string, string> = {
-  recipe:     '#10ffa0', // electric emerald
-  tv:         '#bf7fff', // vivid violet
-  movie:      '#ff4d6d', // vivid ruby
-  restaurant: '#ffb800', // saturated gold-amber
-  hotel:      '#00e5ff', // electric cyan
-  place:      '#4d9fff', // bright sapphire
-  event:      '#ff7a2f', // vivid tangerine
-  book:       '#ffe566', // bright gold
-  podcast:    '#7b7fff', // electric indigo
-  music:      '#ff5fae', // vivid rose
-  article:    '#8eb4d4', // steel blue
-  product:    '#f5e642', // electric yellow
-  workout:    '#39ff7a', // neon lime
-  noted:      '#c9c4c0', // warm neutral
+  recipe:     'oklch(0.72 0.16 38)',
+  restaurant: 'oklch(0.74 0.14 75)',
+  hotel:      'oklch(0.66 0.13 195)',
+  place:      'oklch(0.70 0.13 155)',
+  movie:      'oklch(0.62 0.14 25)',
+  tv:         'oklch(0.68 0.15 270)',
+  book:       'oklch(0.60 0.13 60)',
+  article:    'oklch(0.75 0.04 90)',
+  podcast:    'oklch(0.68 0.15 295)',
+  music:      'oklch(0.70 0.13 215)',
+  workout:    'oklch(0.72 0.18 132)',
+  product:    'oklch(0.70 0.12 50)',
+  event:      'oklch(0.70 0.14 340)',
+  noted:      'oklch(0.78 0.02 100)',
 }

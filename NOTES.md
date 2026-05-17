@@ -6,6 +6,53 @@ Session-by-session record. Short, honest, useful for the next session (mine or D
 
 ---
 
+## 2026-05-17 — Capture coverage, invite/household system, household naming, deploy punchlist
+
+Branch `claude/bold-swanson-70e9ca`, two commits (`a4a00cb` + `9b76018`). Five migrations applied to production DB.
+
+**What shipped:**
+
+*Capture-pipeline coverage.* Six new media types route through dedicated enrichment branches in `lib/enrichment/enrich.ts` and `app/api/enrich-stream/route.ts`: YouTube (oEmbed + Claude with `'video'` hint — kills hardcoded `'noted'`), TikTok (oEmbed + Slackbot UA + `@handle` subtitle), Spotify (oEmbed + path-kind extraction → music vs podcast), Apple Music, Apple Podcasts, Letterboxd, Goodreads. `ClassifyHint` extended from `'place' | null` to `'place' | 'video' | 'music' | 'podcast' | 'movie' | 'book' | null`. New helpers: `fetchOEmbed`, `extractYouTubeId`, `extractSpotifyKind`, `extractTikTokUsername`.
+
+*Invite + household system.* Three migrations: `20260517000001_invite_codes` (table + 4 RPCs), `20260517000002_acquired_via_code` (column + updated redeem function — stamps tester cohort), `20260517000003_list_acquired_users` (admin RPC with warning_level enum). Two invite kinds in one table: `app` (stranger gate, grants 90-day comp Personal trial) and `household` (joins inviter's household as member, link is sufficient credential). Full UI: `InvitesSection` (mint/copy/revoke) and `TestersSection` (color-coded urgency: ok / soon / urgent / expired) in `/settings`, `/join/[code]` landing page, `/login` accepts pasted code or URL-threaded `?invite=`, `/auth/callback` redeems on session exchange. `/billing` for members shows "Handled by {owner}." tile only.
+
+*Trial warnings both directions.* `/billing` shows a countdown banner for `trialing` users — ruby ≤7 days, amber ≤21, teal otherwise. `/settings` TestersSection lists redeemed app codes joined with redeemer state, sorted closest-to-expiry, color-coded badges. Conversion-moment-approaching tile fires when any tester crosses into soon/urgent.
+
+*Household naming.* Migration 4 — `handle_new_user` trigger now creates households named `"{Display}'s finds"` instead of the raw email; backfill renamed existing email-named households. Dylan's household renamed to "Family" via direct SQL. `HouseholdSection` rename UI in `/settings` is owner-only.
+
+*Phase 2 polish.* Migration 5 — `saves.enrichment_errors jsonb` for post-hoc capture-failure triage. `share-save` (iOS Shortcut path) writes derived errors when fallback signals fire. 20s hard timeout on the Anthropic classify call. Phase 2.1 (incremental JSON streaming) deferred — complex parser, modest user-visible win, would land in a dedicated session.
+
+*Account upgrades.* Dylan's user row: `subscription_plan='personal'`, `status='trialing'`, period_end 2027-05-17, `display_name='Dylan'`. Safe to flip `BILLING_ENFORCED=true` without locking him out.
+
+**What's stuck / pending:**
+- Branch needs `git push origin claude/bold-swanson-70e9ca` (or merge to main) to trigger Vercel deploy.
+- `BILLING_ENFORCED=true` env flip in Vercel waiting until after deploy so users have access to invite UI before the gate activates.
+- PWA Share Target on iOS still untested. ~30 min of Dylan's phone time.
+- Apify Instagram — cost decision still pending.
+- Stripe coupons mechanism for tester-conversion discounts — deferred until Stripe is configured for live payments.
+
+**What's next:**
+- Design redesign: Stratum v2 from Claude Design in `_design input/design_handoff_finds_stratum_v2/`. Full visual reset — replaces orbs+jewel-tone+Geist/Fraunces/Space Mono with radial sapphire wash + Instrument Sans/Instrument Serif Italic/Martian Mono + 4px-max border radius + new dock + new card layout. Three screens designed (Library, Capture, Detail); rest applied "in spirit." Implementation plan to follow.
+
+**Decisions made this session:**
+- Household-invite links bypass the beta app-code gate. The link IS the credential.
+- App-code redemption stamps `users.acquired_via_code` for cohort tracking. 90-day Personal trial. No discount layer until Stripe is live; we'll re-issue the cohort fresh codes when paid plans activate.
+- Members never see `/billing`. Just a "Handled by {owner}." tile. Cleanest mental model.
+- 90-day trial chosen over lifetime-free for testers. Lets us learn who actually uses the product.
+- Twitter/X enrichment branch skipped — low scraping success rate, would ship a hollow branch.
+- Phase 2.1 (Anthropic streaming) deferred — high complexity, modest UX win.
+
+**Open questions for Dylan:**
+- Push the branch yourself, or do you want me to push it on your authorization?
+- When you flip `BILLING_ENFORCED=true`, please do it for both Production AND Preview so previews behave the same.
+- Naming check: are we calling it "My Family" or just "Family" in copy? Visibility tabs in the new design say "MY FAMILY"; current code says "Shared" → maps to `visibility: 'household'`. Lining the labels up needs a tiny copy decision.
+
+**Architectural learnings:**
+- Worktree gotcha: when operating in a worktree, `Write`/`Edit` calls using absolute paths to the main repo root will land in main, not the worktree. The session-init system message gives the worktree path explicitly — that's the destination for every Write/Edit. Mid-session a batch of writes landed in main and had to be moved. Recovery worked but cost a checkpoint.
+- Supabase Data API GRANT policy reminder: new `public.*` tables created after Oct 30, 2026 need explicit `GRANT` statements. `invite_codes` includes the grants defensively even though we're pre-cutoff.
+
+---
+
 ## 2026-05-11 (evening) — Live capture-build animation, first pass
 
 **What shipped:**

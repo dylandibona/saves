@@ -2,7 +2,7 @@
 
 Guidance for Claude Code when working in this repository. **Keep this file current** — update it whenever new patterns, decisions, or issues are discovered. The next session reads this first.
 
-> **Status:** Working private build for Dylan + Keelin. Not yet "production, general-public ready." See [The gap to production-public](#the-gap-to-production-public) before scoping new work.
+> **Status (2026-05-17):** Working private build for Dylan + Keelin, plus a real invite system for friends. Household-share is self-serve via `/join/<code>`. Capture covers Google Maps + Instagram + recipes/articles + YouTube + TikTok + Spotify + Apple Music/Podcasts + Letterboxd + Goodreads. Stripe is plumbed but the gate stays open until `BILLING_ENFORCED=true` is flipped in Vercel. **Stratum v2 visual redesign from Claude Design is the active priority** — see `_design input/design_handoff_finds_stratum_v2/README.md` and `PLAN.md` §0. The current pre-redesign aesthetic is described in §14 but should not be extended.
 
 ---
 
@@ -75,6 +75,14 @@ End-to-end tested in production by Dylan unless noted otherwise:
 | **Add — Google Maps URLs** | ✅ Working well | Resolves shortened `maps.app.goo.gl/...` URLs via fetch+redirect. Extracts `@LAT,LNG` from path AND from `!3dLAT!4dLNG` data params. Place name from `/maps/place/...`. Claude classifies as restaurant/hotel/place/event with confidence. |
 | **Add — Instagram URLs** | ⚠️ Partially working | Uses `facebookexternalhit/1.1` UA for richer OG. Title falls back to `username's Reel` or `Instagram Reel` if Instagram blocks scraping. Captions hit-or-miss. Image usually loads. |
 | **Add — generic article/recipe URLs** | ✅ Working well | OG metadata + Claude classification; recipe sites with JSON-LD parse cleanly. |
+| **Add — YouTube / TikTok / Spotify / Apple Music / Apple Podcasts / Letterboxd / Goodreads** | ✅ Working | Dedicated branches per host. oEmbed (no key) for YouTube/TikTok/Spotify; Slackbot UA for the rest. Claude classification with type-specific category hints. YouTube `maxresdefault` thumbnail; TikTok `@handle` subtitle; Spotify path-kind tells music vs podcast. |
+| **Invite codes (`app` kind)** | ✅ Working | Stranger gate. Owner mints in `/settings` → recipient pastes at `/login`. Grants 90-day comp Personal trial. Stamps `users.acquired_via_code` for tester cohort tracking. |
+| **Household invite links (`/join/<code>`)** | ✅ Working | Owner mints a household link, recipient clicks → "Dylan is sharing their library with you" → signs in → joins as member. Link is sufficient credential (bypasses app-code beta gate). |
+| **Tester roster on `/settings`** | ✅ Working | Server-rendered list of redeemed app codes sorted by closest-to-expiry. Color-coded urgency badges. Surfaces "conversion moment approaching" tile when any tester is within 21 days of trial end. |
+| **Trial countdown on `/billing`** | ✅ Working | For `trialing` users: ruby banner ≤7 days, amber ≤21, teal otherwise. Copy explains what happens at expiry. |
+| **Member billing tile** | ✅ Working | `/billing` for users whose household role is `member` shows only a "Handled by {owner}." tile. No upgrade UI, no charges visible. |
+| **Household naming + rename** | ✅ Working | New households default to `"{LocalPart}'s finds"` (was: raw email); existing email-named households backfilled. `HouseholdSection` in `/settings` allows owner-only rename. Dylan's household is "Family". |
+| **enrichment_errors triage** | ✅ Plumbed | `saves.enrichment_errors jsonb` populated by share-save when fallback signals fire. Query `SELECT * FROM saves WHERE enrichment_errors IS NOT NULL` to triage. |
 | **Per-category extraction** | ✅ Shipped, not heavily tested | Claude pulls ingredients/instructions/time for recipes; exercises/sets/duration/equipment for workouts; address/hours/phone/website for places; author/summary/readTime for articles; year/runtime/director for movies; etc. Stored in `canonical_data.extracted`. |
 | **Save detail page** | ✅ Working | Hero image, jewel category chip, Fraunces title, captures timeline with DD/KL initials pill OR external recommender dot, action row (Open URL / Open in Maps / View on Map / Delete), per-category extracted section. Lock icon when private. |
 | **Map at `/map`** | ✅ Working | Custom dark sapphire Google Maps style. Jewel SVG markers per category. Tap marker → bottom-sheet card. "Near Me" geolocation button. Category filter strip. Empty state when no saves have coords. |
@@ -97,11 +105,11 @@ End-to-end tested in production by Dylan unless noted otherwise:
 | **iOS Shortcut config** | Apple's Shortcuts UI varies by iOS version; the manual setup walkthrough on `/settings` doesn't match what users actually see. User got stuck mid-config. | This was supposed to be the "stays in Instagram" path. Replacement: distribute a pre-built `.shortcut` via iCloud share link (one-tap install), or rely on PWA Share Target instead. |
 | **PWA Share Target** | Code is in place (`public/manifest.json` + `app/share/route.ts`) but never validated end-to-end on a real device. | Primary path forward for "share from Instagram" UX — needs installation + test. |
 | **Existing pre-extraction finds** | Finds created before the extraction feature have empty `canonical_data.extracted`. No backfill or re-process action exists. | First few finds Dylan made look threadbare on the detail page. Workaround: delete + re-share. |
-| **Keelin onboarding** | She hasn't signed up yet. Needs to go through Google/magic-link flow. Her self-recommender will be created by the trigger but `display_name` won't be set; identity helper has hardcoded `keelin→KL` mapping that depends on her email containing "keelin". | Single-user app right now. |
+| **Keelin onboarding** | Path is now self-serve: Dylan mints a household link in `/settings`, sends to Keelin, she clicks → signs up → lands in his "Family" household. Manual SQL no longer required. Pre-Stratum-v2 design system, but functional. | Just needs the branch deployed + Dylan to mint the link. |
 | **Google Maps API key** | Currently unrestricted. Anyone can use it from any domain by reading the bundle. | Security/billing risk — should restrict to `saves.dylandibona.com/*` (and `localhost:3000/*` for dev). |
 | **Hardcoded user mappings** | `lib/utils/identity.ts` has explicit `dylan→DD, keelin→KL` matched by email substring. | Fine for two known users; doesn't scale to public sign-ups. Need real user `display_name` field used + fallback initials computed from name parts. |
 | **No edit save UI** | Once saved, can't edit title/category/note/visibility from the UI. Must delete + re-add. | Mid-priority polish gap. |
-| **No Keelin invite flow** | Schema supports multi-member households (`household_members`, only owners can invite per RLS) but there's no UI for invitations. | Workaround: Keelin signs up, gets her own household; we'd manually move her into Dylan's household via SQL. |
+| **No Keelin invite flow** | ✅ Resolved 2026-05-17. `invite_codes` table + `/join/[code]` page + `InvitesSection` in `/settings`. Owner mints a household link, recipient clicks it, signs up, lands inside the household. Migration `20260517000001_invite_codes`. |
 | **No external recommender UI** | Can't add a non-self recommender (e.g., "saved because @julia.cooks recommended it"). Schema is there. | Sprint 2 — currently only "self" captures show up. |
 | **Variations / merge proposals** | Schema exists, no UI. | Sprint 2+. |
 | **No error tracking** | Vercel runtime logs only. No Sentry, no aggregated error visibility. | Production risk. |
@@ -264,11 +272,27 @@ app/
     delete-button.tsx      — Confirmation modal client component
     actions.ts             — deleteSave: soft-archive via status='archived'
   settings/
-    page.tsx               — Token generation, copy, Shortcut instructions (instructions need work)
+    page.tsx               — Wires HouseholdSection + InvitesSection + TestersSection + TokenSection +
+                             Shortcut instructions. Fetches household, codes, testers server-side.
+    household-section.tsx  — Owner-only rename UI; client component using renameHousehold Server Action
+    invites-section.tsx    — Mint/copy/revoke both kinds of invite codes; client. Separates app codes
+                             (bare 10-char strings) from household codes (full /join/<code> URLs).
+    testers-section.tsx    — Server component listing redeemed app codes joined with each redeemer's
+                             trial expiry. Color-coded urgency: ok / soon / urgent / expired.
+                             Fed by list_acquired_users RPC.
     token-section.tsx      — Token UI with copy + regenerate confirmation
-    actions.ts             — generateShareToken: calls Supabase RPC generate_share_token()
+    actions.ts             — generateShareToken, renameHousehold, createAppInviteCode,
+                             createHouseholdInviteCode, revokeInviteCode
   share/route.ts           — PWA share_target endpoint. Scans url/text/title params for an http(s)
                              URL, redirects to /add?url=... so the form flow takes over.
+  join/[code]/
+    page.tsx               — Invite landing. Calls preview_invite_code anon-side and renders
+                             "Dylan is sharing their library with you." If already signed in,
+                             auto-redeems and redirects to /. Otherwise → /login?invite=<code>.
+    actions.ts             — redeemInviteCode Server Action (thin wrapper around the RPC)
+  billing/page.tsx         — Two render paths. Members see a "Handled by {owner}." tile only.
+                             Owners see plan + trial countdown banner (ruby ≤7 days, amber ≤21,
+                             teal otherwise) + plan comparison.
 
 components/
   animated-wordmark.tsx    — Letter-by-letter font morph (Pixelify Sans / VT323 / Silkscreen)
@@ -306,9 +330,18 @@ lib/
     server.ts              — Server client (createServerClient with cookies)
   types/
     supabase.ts            — Auto-generated. Regenerate via `supabase gen types` OR Supabase MCP after every migration.
+  enrichment/
+    enrich.ts              — fetchAndParse + classifyWithClaude + fetchOEmbed + enrichUrl. Per-URL-type
+                             branches: google_maps, instagram, youtube, tiktok, spotify, apple_music,
+                             apple_podcasts, letterboxd, goodreads, generic. ClassifyHint union:
+                             'place' | 'video' | 'music' | 'podcast' | 'movie' | 'book' | null.
+                             deriveEnrichmentErrors() helper for persisting errors to saves.
+    places.ts              — Places API (New) wrapper; resolves photos, hours, types→category.
   utils/
     time.ts                — formatRelativeTime, CATEGORY_LABELS, CATEGORY_COLORS
-    url-detect.ts          — detectUrlType, extractMapsCoords, extractMapsPlaceName, findCoordsInText
+    url-detect.ts          — detectUrlType (10 types), extractMapsCoords, extractMapsPlaceName,
+                             extractYouTubeId, extractSpotifyKind, extractTikTokUsername,
+                             findCoordsInText, sanitizeUrl
     identity.ts            — getUserInitials (dylan→DD, keelin→KL hardcoded), getUserColor
   utils.ts                 — shadcn cn()
 
@@ -331,9 +364,19 @@ supabase/migrations/
   20260510000001_save_visibility.sql   — visibility enum + created_by; RLS updated
   20260510000002_share_token.sql       — share_token column + generate_share_token() function
   20260513000001_security_hardening.sql — search_path pinning, REVOKE EXECUTE on
-                                          SECURITY DEFINER functions, stripe_events
-                                          intent comment. Resolves 11 of 25 advisor
-                                          lints; see docs/session-notes-2026-05-13.md.
+                                          SECURITY DEFINER functions, stripe_events intent comment.
+  20260517000001_invite_codes.sql      — invite_codes table (kind='app'|'household') + RLS.
+                                          RPCs: generate_invite_code, preview_invite_code,
+                                          redeem_invite_code, create_invite_code.
+  20260517000002_acquired_via_code.sql — users.acquired_via_code column + index. redeem function
+                                          stamps it on app-code redemption (tester cohort).
+  20260517000003_list_acquired_users.sql — admin RPC returning inviter's tester roster with
+                                          warning_level enum (ok/soon/urgent/expired/inactive).
+  20260517000004_household_naming.sql  — handle_new_user trigger renames households to
+                                          "{LocalPart}'s finds" (was: raw email). Backfills
+                                          existing email-named households.
+  20260517000005_enrichment_errors.sql — saves.enrichment_errors jsonb column + partial index
+                                          for post-hoc capture-failure triage.
 
 — gitignored, on disk only —
 huashu-design/             — HTML design skill (use for design-direction work; SKILL.md inside)
@@ -347,21 +390,36 @@ taste-skill/               — Anti-slop frontend skill (use for layout/typograp
 
 ```
 auth.users
+  trigger handle_new_user fires on INSERT → creates the user's solo household
+  with name "{LocalPart}'s finds" (May-17 update; was: raw email). The solo
+  household is removed if the user redeems a household invite code.
   └── public.users (1:1, shared id)        capture_email set by app after signup;
         │                                  share_token nullable, generated on demand
+        │                                  subscription_status / subscription_plan /
+        │                                  subscription_current_period_end (Stripe gate)
+        │                                  acquired_via_code (tester-cohort tag from app code redeem)
         └── household_members (many:many)
-              └── households
+              └── households                name defaults to "{Local}'s finds"; owner can rename
                     ├── saves               canonical entry, one per real-world thing
                     │     │ • visibility    'household' | 'private' (default 'household')
                     │     │ • created_by    user.id of the saver (RLS uses this)
                     │     │ • canonical_data  JSONB { coords?: {lat,lng}, extracted?: ... }
+                    │     │ • enrichment_errors JSONB array (post-hoc capture-failure triage)
                     │     ├── captures      every save event; trigger maintains capture_count
                     │     ├── variations    alternate versions (Sprint 2 UI)
                     │     └── save_tags
                     ├── recommenders        who put something on your radar (incl. self)
                     └── tags
 
+invite_codes                                two kinds in one table:
+                                              kind='app'       grants 90-day Personal trial
+                                              kind='household' joins inviter's household
+                                            RPCs: preview_invite_code (anon), redeem_invite_code,
+                                                  create_invite_code, list_acquired_users.
+                                            On app-redeem: stamps users.acquired_via_code.
+
 sources                                     global; where content lives
+stripe_events                               idempotent webhook log (service-role-only)
 inbound_messages                            (Sprint 2) email/SMS landing zone
 merge_proposals                             (Sprint 2) near-duplicate review queue
 ```
@@ -413,31 +471,45 @@ All set in Vercel for Production+Preview. Verified via dashboard.
 
 ## 14. Design system
 
-### Colors
-Base `oklch(0.10 0.08 262)` — deep sapphire, never black. Five animated gradient orbs (teal, amber, ruby, violet, sapphire) drift + scale + opacity-pulse. Grain overlay for tactile depth.
+> **The current production system described below is being replaced.** Stratum v2 from Claude Design (see `_design input/design_handoff_finds_stratum_v2/README.md`) is the new direction. Replace orbs + Fraunces/Geist/Space Mono / Pixel-font wordmark with: static radial sapphire wash + Instrument Sans / Instrument Serif Italic / Martian Mono + 4px-max border-radius + closed-by-default floating dock + single-row drag-scroll category strip. Italic serif is reserved for the editorial moment on a single Find (Capture title resolution, Detail title) — not card titles. See PLAN.md §0 for rollout order.
 
-### Typography
-| Role | Font |
+### Stratum v2 tokens (target)
+
+| Token | Value |
 |---|---|
-| Body / UI | Geist |
-| Content titles | Fraunces (variable, optical-size 144) |
-| Wordmark italic display | Fraunces italic |
-| Labels / meta | Space Mono |
-| Wordmark animation A | Pixelify Sans |
-| Wordmark animation B | VT323 |
-| Wordmark animation C | Silkscreen |
+| `--bg` | `#08080b` |
+| `--bg-gradient` | `radial-gradient(140% 90% at 50% -20%, oklch(0.22 0.08 260) 0%, #08080b 60%)` |
+| `--fg` | `#f4f3ef` |
+| `--dim` | `rgba(244,243,239,0.55)` |
+| `--faint` | `rgba(244,243,239,0.08)` |
+| `--surface` | `rgba(255,255,255,0.04)` |
+| `--surface-hover` | `rgba(244,243,239,0.06)` |
 
-### Chips (`.chip` / `.chip-off`)
-Physical, dimensional. **No spring physics, no color glow, ease-in-out only.**
-- Inactive: neutral dark plastic, depth shadow + gloss highlight, hover scale 1.025
-- Active: full saturated jewel color, dark text (`oklch(0.10 0.09 262)`), depth shadows, no glow
-- Tap: scale 0.97
+Category tones at `oklch L≈0.7 C≈0.14` — per-category color is a leading edge / dot / single-line accent, never a chip fill. Full table in the handoff §3.
 
-### Iconography
-**No emojis.** Inline SVG or typographic Unicode (◈ ◎ ◉ ○).
+### Typography (target)
 
-### Animated wordmark
-`components/animated-wordmark.tsx` — each letter independently fades between 3 pixel fonts on staggered timers (2.8–4.6s, 130ms cross-fade). Layout-stable.
+| Role | Family | Notes |
+|---|---|---|
+| UI body / display sans | Instrument Sans | weights 400, 500. `-0.01em` at large sizes |
+| Display italic | Instrument Serif Italic | ONLY for single-Find title moments (Capture once resolved, Detail). NOT card titles. |
+| Metadata / labels | Martian Mono | uppercase ≥ 0.12em letter-spacing for labels |
+
+### Motion (target)
+
+- Standard easing: `cubic-bezier(0.2, 0.8, 0.2, 1)` ("ease-out-expo")
+- Standard durations: 240ms for hover/state, 320ms for layout, 420–550ms for hero moments
+- **No spring physics. No color glow on chips. No bounce on hover.** Codebase rules; carry forward.
+
+### Pre-Stratum-v2 production (currently shipped)
+
+This is what's live on `finds.dylandibona.com` while Stratum v2 is being implemented. Don't extend it; just refer to it.
+
+- Colors: base `oklch(0.10 0.08 262)` deep sapphire; 5 animated gradient orbs (teal/amber/ruby/violet/sapphire); grain overlay.
+- Type: Geist (body), Fraunces (titles, opsz=144), Space Mono (labels), Pixelify/VT323/Silkscreen (animated wordmark).
+- Chips: `.chip` / `.chip-off` physical pill system, dimensional, ease-in-out only.
+- Iconography: no emojis. Inline SVG or typographic Unicode (◈ ◎ ◉ ○).
+- `components/animated-wordmark.tsx` — letter-by-letter font cycle. **Delete during Stratum v2 rollout.**
 
 ---
 
