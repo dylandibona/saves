@@ -1,29 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <radialGradient id="bg" cx="35%" cy="30%" r="80%">
-      <stop offset="0%" stop-color="#1d4ed8" stop-opacity="0.85"/>
-      <stop offset="55%" stop-color="#0f1c3a" stop-opacity="1"/>
-      <stop offset="100%" stop-color="#0a0f1c" stop-opacity="1"/>
-    </radialGradient>
-    <radialGradient id="orb1" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#0f9d8a" stop-opacity="0.55"/>
-      <stop offset="100%" stop-color="#0f9d8a" stop-opacity="0"/>
-    </radialGradient>
-    <radialGradient id="orb2" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="#be123c" stop-opacity="0.45"/>
-      <stop offset="100%" stop-color="#be123c" stop-opacity="0"/>
-    </radialGradient>
-  </defs>
-  <!-- Rounded square base -->
-  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <!-- Jewel orb echoes -->
-  <circle cx="120" cy="140" r="180" fill="url(#orb1)"/>
-  <circle cx="400" cy="380" r="160" fill="url(#orb2)"/>
-  <!-- Block F — geometric mark for Finds. Same 1200-unit grid as previous icon, centered. -->
-  <g transform="translate(116 116) scale(0.234)">
-    <path
-      d="M300 240 H900 V400 H460 V540 H800 V680 H460 V960 H300 Z"
-      fill="rgba(255,255,255,0.95)"
-    />
+  <!-- Rounded-square base in Stratum v2 near-black (#08080b). 112 radius
+       matches iOS' 22% radius for a 512px artwork. -->
+  <rect width="512" height="512" rx="112" fill="#08080b"/>
+  <!-- Finds logomark, cream — paths sourced from public/logo.black.svg.
+       Translated + scaled to center inside the 512px artboard:
+         logo viewBox is 344.3 × 445.26 (~3:4)
+         scale = 360/445.26 ≈ 0.8085
+         tx = (512 - 344.3*0.8085)/2 ≈ 116.8
+         ty = (512 - 360)/2 = 76 -->
+  <g transform="translate(116.8 76) scale(0.8085)" fill="#f4f3ef">
+    <path d="M132.54,251.59c-16.58.77-27.67,10.62-29.81,25.26l-.16,59.34c-.16,57.56-43.85,105.11-102.32,109.08l.49-182.63c.16-58.77,48.13-106.96,107.15-107.11l190.27-.5c-9.09,58.87-56.76,97.78-113.81,97.14l-51.82-.58Z"/>
+    <path d="M114.5,110.4c-52.12-.19-93.19,30.71-113.26,78.28L0,105.66C1.16,50.56,42.51,1.4,100.17,1.13l244.13-1.13c-6.33,62.58-57.19,109.84-119.63,110.04l-110.17.36Z"/>
   </g>
 </svg>

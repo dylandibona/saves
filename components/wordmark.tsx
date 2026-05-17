@@ -1,15 +1,22 @@
 /**
- * Wordmark — the Stratum v2 brand mark.
+ * Wordmark — the Finds brand mark.
  *
- * Three offset rounded rectangles forming a stylized F, paired with the
- * word "Finds" in Instrument Sans weight 500. Replaces the previous
- * pixel-font letter-cycling AnimatedWordmark.
+ * Two paths from public/logo.black.svg, rendered inline so we can tint
+ * via the `color` prop (default: paper). Paired with the word "Finds" in
+ * Instrument Sans weight 500. Replaces the earlier three-rectangle
+ * placeholder Sigil + the pixel-font letter-cycling AnimatedWordmark.
  *
  * Tapping the wordmark is the "go home" gesture in the new design —
  * `onReset` lets the parent surface (typically the Library) reset its
  * filter to `all`. When `onReset` is absent the mark renders as a
- * non-interactive Link/anchor pattern; callers wrap it in a Link.
+ * non-interactive span; callers wrap it in a Link if they want
+ * navigation.
  */
+
+const LOGO_VIEWBOX_W = 344.3
+const LOGO_VIEWBOX_H = 445.26
+const LOGO_ASPECT = LOGO_VIEWBOX_W / LOGO_VIEWBOX_H  // ~0.7733
+
 type Props = {
   size?: number
   showWord?: boolean
@@ -61,29 +68,34 @@ export function Wordmark({ size = 22, showWord = true, onReset }: Props) {
 }
 
 /**
- * Sigil — three offset rounded rectangles forming a stylized F.
- * Stratum v2 mark; uses a soft vertical gradient. Exported separately
- * so the dock or favicon can use just the sigil without the wordmark.
+ * Sigil — the Finds logomark. Two SVG paths sourced from
+ * public/logo.black.svg; rendered inline so callers can tint via the
+ * `color` prop. `size` controls HEIGHT — width derives from the natural
+ * aspect ratio (taller than wide, ~3:4).
+ *
+ * Background uses fill="currentColor" so the surrounding element can
+ * also recolor via CSS `color` if desired.
  */
 export function Sigil({ size = 22, color = '#f4f3ef' }: { size?: number; color?: string }) {
-  const gid = `sigil-${size}` // unique gradient id per render
+  const width = Math.round(size * LOGO_ASPECT)
   return (
     <svg
-      width={size}
+      width={width}
       height={size}
-      viewBox="0 0 24 24"
+      viewBox={`0 0 ${LOGO_VIEWBOX_W} ${LOGO_VIEWBOX_H}`}
       aria-hidden
-      style={{ flexShrink: 0 }}
+      style={{ flexShrink: 0, color }}
     >
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor={color} stopOpacity="0.95" />
-          <stop offset="1" stopColor={color} stopOpacity="0.6" />
-        </linearGradient>
-      </defs>
-      <rect x="3" y="3" width="18" height="3" rx="0.5" fill={`url(#${gid})`} />
-      <rect x="3" y="9.5" width="13" height="3" rx="0.5" fill={`url(#${gid})`} opacity="0.85" />
-      <rect x="3" y="16" width="6" height="3" rx="0.5" fill={`url(#${gid})`} opacity="0.65" />
+      <g>
+        <path
+          d="M132.54,251.59c-16.58.77-27.67,10.62-29.81,25.26l-.16,59.34c-.16,57.56-43.85,105.11-102.32,109.08l.49-182.63c.16-58.77,48.13-106.96,107.15-107.11l190.27-.5c-9.09,58.87-56.76,97.78-113.81,97.14l-51.82-.58Z"
+          fill="currentColor"
+        />
+        <path
+          d="M114.5,110.4c-52.12-.19-93.19,30.71-113.26,78.28L0,105.66C1.16,50.56,42.51,1.4,100.17,1.13l244.13-1.13c-6.33,62.58-57.19,109.84-119.63,110.04l-110.17.36Z"
+          fill="currentColor"
+        />
+      </g>
     </svg>
   )
 }
