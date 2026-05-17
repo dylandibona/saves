@@ -61,36 +61,36 @@ export default async function BillingPage({
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
         }}
       >
-        <div style={{ padding: '14px 20px 8px' }}>
+        <div
+          style={{
+            padding: '14px 20px 8px',
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            gap: 16,
+          }}
+        >
           <Link href="/" aria-label="Back to library" className="inline-flex">
             <Wordmark />
           </Link>
-          <div style={{ marginTop: 16 }}>
-            <p
-              className="font-mono"
-              style={{
-                fontSize: 9,
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                color: 'var(--color-mute)',
-              }}
-            >
-              Billing
-            </p>
-            <h1
-              className="font-display"
-              style={{
-                marginTop: 4,
-                fontSize: 24,
-                lineHeight: 1.2,
-                fontWeight: 400,
-                letterSpacing: '-0.02em',
-                color: 'var(--color-paper)',
-              }}
-            >
-              Handled by <span style={{ color: 'var(--color-paper)', fontWeight: 500 }}>{ownerName}</span>.
-            </h1>
-          </div>
+          <h1
+            style={{
+              fontFamily: 'var(--font-sans), system-ui, sans-serif',
+              fontSize: 22,
+              lineHeight: 1.0,
+              fontWeight: 300,
+              letterSpacing: '-0.02em',
+              color: 'var(--color-paper)',
+              textAlign: 'right',
+              margin: 0,
+            }}
+          >
+            <span style={{ fontWeight: 400 }}>Handled by </span>
+            <span className="font-serif-display" style={{ fontSize: 22 }}>
+              {ownerName}
+            </span>
+            <span style={{ color: 'var(--color-mute)' }}>.</span>
+          </h1>
         </div>
 
         <section
@@ -144,36 +144,36 @@ export default async function BillingPage({
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
       }}
     >
-      <div style={{ padding: '14px 20px 8px' }}>
+      <div
+        style={{
+          padding: '14px 20px 8px',
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}
+      >
         <Link href="/" aria-label="Back to library" className="inline-flex">
           <Wordmark />
         </Link>
-        <div style={{ marginTop: 16 }}>
-          <p
-            className="font-mono"
-            style={{
-              fontSize: 9,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              color: 'var(--color-mute)',
-            }}
-          >
-            Billing
-          </p>
-          <h1
-            className="font-display"
-            style={{
-              marginTop: 4,
-              fontSize: 24,
-              lineHeight: 1.2,
-              fontWeight: 400,
-              letterSpacing: '-0.02em',
-              color: 'var(--color-paper)',
-            }}
-          >
-            Your plan.
-          </h1>
-        </div>
+        <h1
+          style={{
+            fontFamily: 'var(--font-sans), system-ui, sans-serif',
+            fontSize: 22,
+            lineHeight: 1.0,
+            fontWeight: 300,
+            letterSpacing: '-0.02em',
+            color: 'var(--color-paper)',
+            textAlign: 'right',
+            margin: 0,
+          }}
+        >
+          <span style={{ fontWeight: 400 }}>Your </span>
+          <span className="font-serif-display" style={{ fontSize: 22 }}>
+            plan
+          </span>
+          <span style={{ color: 'var(--color-mute)' }}>.</span>
+        </h1>
       </div>
       <div className="px-5 space-y-10">
 

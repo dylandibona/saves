@@ -59,53 +59,48 @@ export function FeedClient({
 
   return (
     <div className="relative">
-      {/* ── Header ──────────────────────────────────────────────────── */}
-      <header style={{ padding: '14px 20px 8px' }}>
-        <div className="flex items-center justify-between">
-          <Wordmark size={22} onReset={() => setActive('all')} />
-          {/* Tonight clock-glyph — hidden per Dylan's call. */}
-        </div>
-
-        <div style={{ marginTop: 16 }}>
-          <div
-            style={{
-              fontFamily: 'var(--font-mono), ui-monospace, monospace',
-              fontSize: 9,
-              color: 'var(--color-mute)',
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-            }}
-          >
-            Your&nbsp;Library
-          </div>
-          <div
-            style={{
-              marginTop: 4,
-              fontFamily: 'var(--font-sans), system-ui, sans-serif',
-              fontSize: 24,
-              lineHeight: 1.1,
-              fontWeight: 300,
-              letterSpacing: '-0.02em',
-              textWrap: 'pretty',
-            }}
-          >
-            {active === 'all' ? (
-              <span style={{ fontWeight: 400 }}>
-                {total} Finds
-                <span style={{ color: 'var(--color-mute)' }}>.</span>
+      {/* ── Header (single-row top-right-title pattern) ──────────────── */}
+      <header
+        style={{
+          padding: '14px 20px 8px',
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}
+      >
+        <Wordmark size={22} onReset={() => setActive('all')} />
+        <div
+          style={{
+            fontFamily: 'var(--font-sans), system-ui, sans-serif',
+            fontSize: 22,
+            lineHeight: 1.0,
+            fontWeight: 300,
+            letterSpacing: '-0.02em',
+            textWrap: 'pretty',
+            textAlign: 'right',
+          }}
+        >
+          {active === 'all' ? (
+            <>
+              <span style={{ fontWeight: 400 }}>{total} </span>
+              <span className="font-serif-display" style={{ fontSize: 22 }}>
+                kept
               </span>
-            ) : (
-              <>
-                <span style={{ color: activeTone, fontWeight: 400 }}>
-                  {filteredCount}
-                </span>{' '}
-                <span style={{ color: 'var(--color-mute)' }}>
-                  {(activeLabel ?? '').toLowerCase()}
-                  {filteredCount === 1 ? '' : 's'}.
-                </span>
-              </>
-            )}
-          </div>
+              <span style={{ color: 'var(--color-mute)' }}>.</span>
+            </>
+          ) : (
+            <>
+              <span style={{ color: activeTone, fontWeight: 400 }}>
+                {filteredCount}
+              </span>{' '}
+              <span className="font-serif-display" style={{ fontSize: 22 }}>
+                {(activeLabel ?? '').toLowerCase()}
+                {filteredCount === 1 ? '' : 's'}
+              </span>
+              <span style={{ color: 'var(--color-mute)' }}>.</span>
+            </>
+          )}
         </div>
       </header>
 

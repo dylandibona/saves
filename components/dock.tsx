@@ -20,6 +20,9 @@ import { usePathname, useRouter } from 'next/navigation'
  *   • /login + /auth/* + /join/* — no chrome on auth surfaces
  *   • /add               — Capture's Keep button owns this spot
  *   • /saves/[id]        — Detail's Open original / Options bar owns it
+ *
+ * Visible on /map — the Stratum v2 map design includes the dock as the
+ * primary nav affordance; the map card floats above it.
  */
 
 const HIDDEN_ON: Array<(p: string) => boolean> = [

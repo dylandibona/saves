@@ -7,6 +7,7 @@ import { TokenSection } from './token-section'
 import { InvitesSection } from './invites-section'
 import { TestersSection } from './testers-section'
 import { HouseholdSection } from './household-section'
+import { SubscriptionSection } from './subscription-section'
 import { signOut } from './actions'
 import type { Metadata } from 'next'
 
@@ -17,10 +18,12 @@ export default async function SettingsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // Read existing token (if any) so we can show it without forcing a regenerate
+  // Read existing token (if any) so we can show it without forcing a regenerate.
+  // Also pull subscription fields for the SubscriptionSection panel — single
+  // round-trip beats two queries.
   const { data: profile } = await supabase
     .from('users')
-    .select('share_token')
+    .select('share_token, subscription_status, subscription_plan, subscription_current_period_end')
     .eq('id', user!.id)
     .single()
 
@@ -51,6 +54,49 @@ export default async function SettingsPage() {
         .eq('household_id', myMembership.household_id)
     : { count: 0 }
 
+  // For the Subscription panel: count of active saves in this household, used
+  // to render "{N} of 12 finds used" on the free plan. Same pattern as
+  // memberCount above — head:true so we pay for the count alone.
+  const { count: saveCount } = myMembership
+    ? await supabase
+        .from('saves')
+        .select('id', { count: 'exact', head: true })
+        .eq('household_id', myMembership.household_id)
+        .eq('status', 'active')
+    : { count: 0 }
+
+  // For the household_member case ("Through {ownerName}") we need the name of
+  // whoever created the household. Only fire this when relevant — i.e. when
+  // the current user is *not* an owner themselves.
+  let ownerName: string | null = null
+  if (myMembership && myMembership.role !== 'owner') {
+    const { data: householdRow } = await supabase
+      .from('households')
+      .select('created_by')
+      .eq('id', myMembership.household_id)
+      .single()
+    if (householdRow?.created_by) {
+      const { data: ownerRow } = await supabase
+        .from('users')
+        .select('display_name, email')
+        .eq('id', householdRow.created_by)
+        .single()
+      ownerName = ownerRow?.display_name ?? ownerRow?.email?.split('@')[0] ?? null
+    }
+  }
+
+  // Narrow the subscription status to the enum shape SubscriptionSection expects.
+  type SubStatus = 'free' | 'trialing' | 'active' | 'past_due' | 'canceled' | 'incomplete'
+  const rawStatus = profile?.subscription_status ?? 'free'
+  const subStatus: SubStatus =
+    rawStatus === 'trialing' || rawStatus === 'active' || rawStatus === 'past_due'
+      || rawStatus === 'canceled' || rawStatus === 'incomplete'
+      ? rawStatus
+      : 'free'
+  const rawPlan = profile?.subscription_plan ?? null
+  const subPlan: 'personal' | 'household_member' | null =
+    rawPlan === 'personal' || rawPlan === 'household_member' ? rawPlan : null
+
   // Resolve absolute origin for share links. Vercel sets x-forwarded-host /
   // x-forwarded-proto; locally we fall back to NEXT_PUBLIC_SITE_URL or
   // finds.dylandibona.com to keep links shareable from any environment.
@@ -68,43 +114,48 @@ export default async function SettingsPage() {
         paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
       }}
     >
-      {/* Header — same chrome as the new Library: sigil + wordmark left,
-          mono section label + count line below. */}
-      <div style={{ padding: '14px 20px 8px' }}>
-        <div className="flex items-center justify-between">
-          <Link href="/" aria-label="Back to library" className="inline-flex">
-            <Wordmark />
-          </Link>
-        </div>
-        <div style={{ marginTop: 16 }}>
-          <p
-            className="font-mono"
-            style={{
-              fontSize: 9,
-              letterSpacing: '0.16em',
-              textTransform: 'uppercase',
-              color: 'var(--color-mute)',
-            }}
-          >
-            Your&nbsp;account
-          </p>
-          <h1
-            className="font-display"
-            style={{
-              marginTop: 4,
-              fontSize: 24,
-              lineHeight: 1.1,
-              fontWeight: 400,
-              letterSpacing: '-0.02em',
-              color: 'var(--color-paper)',
-            }}
-          >
-            Your settings.
-          </h1>
-        </div>
+      {/* Header — single-row top-right-title pattern. */}
+      <div
+        style={{
+          padding: '14px 20px 8px',
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: 16,
+        }}
+      >
+        <Link href="/" aria-label="Back to library" className="inline-flex">
+          <Wordmark />
+        </Link>
+        <h1
+          style={{
+            fontFamily: 'var(--font-sans), system-ui, sans-serif',
+            fontSize: 22,
+            lineHeight: 1.0,
+            fontWeight: 300,
+            letterSpacing: '-0.02em',
+            color: 'var(--color-paper)',
+            textAlign: 'right',
+            margin: 0,
+          }}
+        >
+          <span style={{ fontWeight: 400 }}>Your </span>
+          <span className="font-serif-display" style={{ fontSize: 22 }}>
+            settings
+          </span>
+          <span style={{ color: 'var(--color-mute)' }}>.</span>
+        </h1>
       </div>
 
       <div className="px-5 space-y-10">
+        <SubscriptionSection
+          status={subStatus}
+          plan={subPlan}
+          currentSaves={saveCount ?? 0}
+          periodEnd={profile?.subscription_current_period_end ?? null}
+          ownerName={ownerName}
+        />
+
         {household?.name && (
           <HouseholdSection
             initialName={household.name}
