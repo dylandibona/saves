@@ -1,254 +1,406 @@
-import type { ExtractedData } from '@/lib/actions/enrich-url'
+import type { ExtractedData } from '@/lib/enrichment/enrich'
 import type { Database } from '@/lib/types/supabase'
 
 type SaveCategory = Database['public']['Enums']['save_category']
 
 /**
- * Renders the per-category structured data extracted at enrichment time.
- * The save IS the artifact — these are the fields that make it so the user
- * doesn't need to follow the source link to remember why they saved it.
+ * Stratum v2 extracted display.
  *
- * Each category gets a different layout. Sections only render when their
- * fields have data; unused fields stay invisible. The aesthetic matches
- * the rest of the app: Fraunces for content, Space Mono for labels.
+ * Two visual zones:
+ *   1. The EXTRACTED summary row — a left-bordered block with inline
+ *      mono pairs (e.g. `25 MIN · 50g PROTEIN · 4 SERVES`). 2-4 keys per
+ *      category, chosen for at-a-glance recall.
+ *   2. Per-category structured lists below (ingredients, instructions,
+ *      exercises, place details, article summary, etc.).
+ *
+ * Both zones are independently optional. If `summaryItems` is empty the
+ * top block hides; if no list applies the bottom hides.
  */
 
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="font-mono text-[10px] tracking-widest text-white/30">
-      {children}
-    </p>
-  )
+// ─── Summary pairs per category ───────────────────────────────────────────────
+
+type Pair = { value: string; label: string }
+
+function asString(v: unknown): string | null {
+  if (v == null) return null
+  if (typeof v === 'string') return v.trim() || null
+  if (typeof v === 'number') return String(v)
+  return null
 }
 
-function Block({
-  label,
-  children,
-}: {
-  label: string
-  children: React.ReactNode
-}) {
+function pickSummary(category: SaveCategory, e: ExtractedData): Pair[] {
+  const out: Pair[] = []
+
+  const push = (value: string | null | undefined, label: string) => {
+    const v = asString(value)
+    if (v) out.push({ value: v, label })
+  }
+
+  switch (category) {
+    case 'recipe': {
+      if (e.totalTime) push(e.totalTime, 'TIME')
+      if (e.servings) push(String(e.servings), 'SERVES')
+      if (e.ingredients?.length) push(String(e.ingredients.length), 'INGREDIENTS')
+      break
+    }
+    case 'workout': {
+      if (e.duration) push(e.duration, 'DURATION')
+      if (e.exercises?.length) push(String(e.exercises.length), 'EXERCISES')
+      if (e.equipment?.[0]) push(`WITH ${e.equipment[0].toUpperCase()}`, '')
+      break
+    }
+    case 'article':
+    case 'book': {
+      if (e.readTime) push(e.readTime, 'READ')
+      if (e.author) push(`BY ${e.author.toUpperCase()}`, '')
+      if (e.publishedAt) push(e.publishedAt, '')
+      break
+    }
+    case 'movie':
+    case 'tv': {
+      if (e.year) push(String(e.year), '')
+      if (e.runtime) push(e.runtime, 'MIN')
+      if (e.director) push(`BY ${e.director.toUpperCase()}`, '')
+      break
+    }
+    case 'restaurant':
+    case 'hotel':
+    case 'place': {
+      if (e.priceLevel) push(e.priceLevel, '')
+      if (e.hours) push(e.hours, '')
+      if (e.phone) push(e.phone, '')
+      break
+    }
+    case 'product': {
+      if (e.brand) push(e.brand, '')
+      if (e.price) push(e.price, '')
+      break
+    }
+    case 'podcast':
+    case 'music': {
+      if (e.showName) push(e.showName, '')
+      if (e.episodeNumber) push(`#${e.episodeNumber}`, '')
+      if (e.artist) push(e.artist, '')
+      break
+    }
+    default:
+      break
+  }
+
+  return out
+}
+
+function countExtractedItems(e: ExtractedData): number {
+  let n = 0
+  for (const v of Object.values(e)) {
+    if (v == null || v === '') continue
+    if (Array.isArray(v)) n += v.length
+    else n += 1
+  }
+  return n
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
+    <div
+      className="font-mono"
+      style={{
+        fontSize: 9,
+        color: 'var(--color-mute)',
+        letterSpacing: '0.16em',
+        paddingBottom: 6,
+        borderBottom: '1px solid var(--color-hairline)',
+      }}
+    >
       {children}
     </div>
   )
 }
 
-function MetaRow({ items }: { items: Array<{ label: string; value: string | number }> }) {
-  if (items.length === 0) return null
+function NumberedRow({
+  i,
+  total,
+  children,
+}: {
+  i: number
+  total: number
+  children: React.ReactNode
+}) {
   return (
-    <dl className="flex flex-wrap gap-x-6 gap-y-2">
-      {items.map(({ label, value }) => (
-        <div key={label} className="flex flex-col gap-0.5 min-w-[80px]">
-          <dt className="font-mono text-[9px] tracking-widest text-white/30 uppercase">{label}</dt>
-          <dd className="font-serif text-base text-white/82 tabular-nums">{value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '24px 1fr',
+        padding: '10px 0',
+        borderBottom:
+          i < total - 1 ? '1px solid var(--color-hairline)' : 'none',
+        alignItems: 'baseline',
+      }}
+    >
+      <span
+        className="font-mono"
+        style={{
+          fontSize: 9,
+          color: 'var(--color-faint)',
+          letterSpacing: '0.06em',
+        }}
+      >
+        {String(i + 1).padStart(2, '0')}
+      </span>
+      <span style={{ fontSize: 13, color: 'var(--color-paper)', lineHeight: 1.4 }}>
+        {children}
+      </span>
+    </div>
   )
 }
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function ExtractedSection({
   category,
   extracted,
+  tone,
 }: {
   category: SaveCategory
   extracted: ExtractedData
+  tone: string
 }) {
   if (!extracted || Object.keys(extracted).length === 0) return null
 
+  const summary = pickSummary(category, extracted)
+  const totalItems = countExtractedItems(extracted)
+
   return (
-    <div className="space-y-8">
-      {/* ── Recipe ────────────────────────────────────────────────────── */}
+    <>
+      {/* Summary row */}
+      {(summary.length > 0 || totalItems > 0) && (
+        <div
+          className="relative"
+          style={{
+            margin: '22px 18px 0',
+            paddingLeft: 14,
+            borderLeft: `1px solid ${tone}`,
+          }}
+        >
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute',
+              left: -1,
+              top: 0,
+              width: 1,
+              height: 18,
+              background: tone,
+              boxShadow: `0 0 8px ${tone}`,
+            }}
+          />
+          <div
+            className="font-mono"
+            style={{
+              fontSize: 9,
+              color: tone,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+            }}
+          >
+            Extracted{totalItems > 0 ? ` · ${totalItems} items` : ''}
+          </div>
+          {summary.length > 0 && (
+            <div
+              style={{
+                marginTop: 10,
+                display: 'flex',
+                gap: 18,
+                flexWrap: 'wrap',
+                fontFamily: 'var(--font-mono), ui-monospace, monospace',
+                fontSize: 10,
+                color: 'var(--color-mute)',
+                letterSpacing: '0.04em',
+              }}
+            >
+              {summary.map((p, i) => (
+                <span key={`${p.value}-${p.label}-${i}`}>
+                  <span style={{ color: 'var(--color-paper)', fontSize: 11 }}>
+                    {p.value}
+                  </span>
+                  {p.label && ` ${p.label}`}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Per-category structured detail */}
+
+      {/* Recipe — ingredients + instructions */}
       {category === 'recipe' && (
         <>
-          <MetaRow
-            items={[
-              extracted.totalTime ? { label: 'Time',     value: extracted.totalTime } : null,
-              extracted.servings  ? { label: 'Servings', value: extracted.servings }  : null,
-            ].filter((x) => x !== null) as Array<{ label: string; value: string | number }>}
-          />
-
           {extracted.ingredients && extracted.ingredients.length > 0 && (
-            <Block label="Ingredients">
-              <ul className="space-y-1.5">
-                {extracted.ingredients.map((ing, i) => (
-                  <li
-                    key={i}
-                    className="text-[15px] text-white/80 leading-relaxed pl-4 relative before:absolute before:left-0 before:top-[10px] before:w-1.5 before:h-1.5 before:rounded-full before:bg-white/30"
-                  >
-                    {ing}
-                  </li>
-                ))}
-              </ul>
-            </Block>
+            <section style={{ margin: '20px 18px 0' }}>
+              <SectionHeader>INGREDIENTS</SectionHeader>
+              {extracted.ingredients.map((ing, i) => (
+                <NumberedRow key={i} i={i} total={extracted.ingredients!.length}>
+                  {ing}
+                </NumberedRow>
+              ))}
+            </section>
           )}
-
           {extracted.instructions && extracted.instructions.length > 0 && (
-            <Block label="Instructions">
-              <ol className="space-y-3 counter-reset-instructions">
-                {extracted.instructions.map((step, i) => (
-                  <li key={i} className="flex gap-3">
-                    <span
-                      className="font-mono text-[11px] tabular-nums shrink-0 mt-1 w-5 h-5 rounded-full inline-flex items-center justify-center"
-                      style={{
-                        background: 'rgba(255,255,255,0.06)',
-                        color: 'rgba(255,255,255,0.55)',
-                        border: '1px solid rgba(255,255,255,0.08)',
-                      }}
-                    >
-                      {i + 1}
-                    </span>
-                    <span className="text-[15px] text-white/80 leading-relaxed flex-1">{step}</span>
-                  </li>
-                ))}
-              </ol>
-            </Block>
+            <section style={{ margin: '20px 18px 0' }}>
+              <SectionHeader>INSTRUCTIONS</SectionHeader>
+              {extracted.instructions.map((step, i) => (
+                <NumberedRow key={i} i={i} total={extracted.instructions!.length}>
+                  {step}
+                </NumberedRow>
+              ))}
+            </section>
           )}
         </>
       )}
 
-      {/* ── Workout ──────────────────────────────────────────────────── */}
-      {category === 'workout' && (
-        <>
-          <MetaRow
-            items={[
-              extracted.duration  ? { label: 'Duration',  value: extracted.duration }            : null,
-              extracted.equipment ? { label: 'Equipment', value: extracted.equipment.join(', ') } : null,
-            ].filter((x) => x !== null) as Array<{ label: string; value: string | number }>}
-          />
-
-          {extracted.exercises && extracted.exercises.length > 0 && (
-            <Block label="Exercises">
-              <ul className="space-y-2.5">
-                {extracted.exercises.map((ex, i) => (
-                  <li
-                    key={i}
-                    className="rounded-xl px-4 py-3 space-y-1"
+      {/* Workout — exercises */}
+      {category === 'workout' &&
+        extracted.exercises &&
+        extracted.exercises.length > 0 && (
+          <section style={{ margin: '20px 18px 0' }}>
+            <SectionHeader>EXERCISES</SectionHeader>
+            {extracted.exercises.map((ex, i) => {
+              const meta = [ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`]
+                .filter(Boolean)
+                .join(' · ')
+              return (
+                <div
+                  key={i}
+                  style={{
+                    padding: '10px 0',
+                    borderBottom:
+                      i < extracted.exercises!.length - 1
+                        ? '1px solid var(--color-hairline)'
+                        : 'none',
+                  }}
+                >
+                  <div
                     style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '1px solid rgba(255,255,255,0.07)',
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      justifyContent: 'space-between',
+                      gap: 12,
+                      flexWrap: 'wrap',
                     }}
                   >
-                    <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                      <p className="font-serif text-base text-white/88">{ex.name}</p>
-                      <p className="font-mono text-[11px] text-white/45 tabular-nums">
-                        {[ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </p>
-                    </div>
-                    {ex.notes && (
-                      <p className="text-[13px] text-white/55 leading-relaxed">{ex.notes}</p>
+                    <span style={{ fontSize: 13, color: 'var(--color-paper)' }}>
+                      {ex.name}
+                    </span>
+                    {meta && (
+                      <span
+                        className="font-mono"
+                        style={{
+                          fontSize: 10,
+                          color: 'var(--color-mute)',
+                          letterSpacing: '0.04em',
+                        }}
+                      >
+                        {meta}
+                      </span>
                     )}
-                  </li>
-                ))}
-              </ul>
-            </Block>
-          )}
-        </>
-      )}
+                  </div>
+                  {ex.notes && (
+                    <p
+                      style={{
+                        fontSize: 12.5,
+                        color: 'rgba(244,243,239,0.55)',
+                        lineHeight: 1.4,
+                        marginTop: 4,
+                      }}
+                    >
+                      {ex.notes}
+                    </p>
+                  )}
+                </div>
+              )
+            })}
+          </section>
+        )}
 
-      {/* ── Place / Restaurant / Hotel ─────────────────────────────── */}
+      {/* Place / restaurant / hotel — address / website / phone */}
       {(category === 'place' || category === 'restaurant' || category === 'hotel') && (
         <>
-          <MetaRow
-            items={[
-              extracted.priceLevel ? { label: 'Price', value: extracted.priceLevel } : null,
-              extracted.hours      ? { label: 'Hours', value: extracted.hours }      : null,
-              extracted.phone      ? { label: 'Phone', value: extracted.phone }      : null,
-            ].filter((x) => x !== null) as Array<{ label: string; value: string | number }>}
-          />
-
           {extracted.address && (
-            <Block label="Address">
-              <p className="text-[15px] text-white/80 leading-relaxed">{extracted.address}</p>
-            </Block>
+            <section style={{ margin: '20px 18px 0' }}>
+              <SectionHeader>ADDRESS</SectionHeader>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: 'var(--color-paper)',
+                  lineHeight: 1.45,
+                  paddingTop: 8,
+                }}
+              >
+                {extracted.address}
+              </p>
+            </section>
           )}
-
           {extracted.website && (
-            <Block label="Website">
+            <section style={{ margin: '20px 18px 0' }}>
+              <SectionHeader>WEBSITE</SectionHeader>
               <a
                 href={extracted.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[14px] text-white/70 hover:text-white/90 transition-colors underline underline-offset-4 decoration-white/20 break-all"
+                style={{
+                  fontSize: 13,
+                  color: 'var(--color-paper)',
+                  textDecoration: 'underline',
+                  textDecorationColor: 'rgba(244,243,239,0.25)',
+                  textUnderlineOffset: 4,
+                  display: 'inline-block',
+                  paddingTop: 8,
+                  wordBreak: 'break-all',
+                }}
               >
                 {extracted.website.replace(/^https?:\/\//, '')}
               </a>
-            </Block>
+            </section>
           )}
         </>
       )}
 
-      {/* ── Article / Book ──────────────────────────────────────────── */}
-      {(category === 'article' || category === 'book') && (
-        <>
-          <MetaRow
-            items={[
-              extracted.author      ? { label: 'Author',    value: extracted.author }      : null,
-              extracted.readTime    ? { label: 'Read time', value: extracted.readTime }    : null,
-              extracted.publishedAt ? { label: 'Published', value: extracted.publishedAt } : null,
-            ].filter((x) => x !== null) as Array<{ label: string; value: string | number }>}
-          />
-
-          {extracted.summary && (
-            <Block label="Summary">
-              <p className="text-[15px] text-white/75 leading-relaxed font-serif">
-                {extracted.summary}
-              </p>
-            </Block>
-          )}
-        </>
+      {/* Article / book — summary */}
+      {(category === 'article' || category === 'book') && extracted.summary && (
+        <section style={{ margin: '20px 18px 0' }}>
+          <SectionHeader>SUMMARY</SectionHeader>
+          <p
+            style={{
+              fontSize: 13,
+              color: 'rgba(244,243,239,0.82)',
+              lineHeight: 1.5,
+              paddingTop: 10,
+            }}
+          >
+            {extracted.summary}
+          </p>
+        </section>
       )}
 
-      {/* ── TV / Movie ───────────────────────────────────────────────── */}
-      {(category === 'tv' || category === 'movie') && (
-        <>
-          <MetaRow
-            items={[
-              extracted.year     ? { label: 'Year',     value: extracted.year }     : null,
-              extracted.runtime  ? { label: 'Runtime',  value: extracted.runtime }  : null,
-              extracted.director ? { label: 'Director', value: extracted.director } : null,
-            ].filter((x) => x !== null) as Array<{ label: string; value: string | number }>}
-          />
-
-          {extracted.summary && (
-            <Block label="Synopsis">
-              <p className="text-[15px] text-white/75 leading-relaxed font-serif">
-                {extracted.summary}
-              </p>
-            </Block>
-          )}
-        </>
+      {/* TV / movie — synopsis */}
+      {(category === 'tv' || category === 'movie') && extracted.summary && (
+        <section style={{ margin: '20px 18px 0' }}>
+          <SectionHeader>SYNOPSIS</SectionHeader>
+          <p
+            style={{
+              fontSize: 13,
+              color: 'rgba(244,243,239,0.82)',
+              lineHeight: 1.5,
+              paddingTop: 10,
+            }}
+          >
+            {extracted.summary}
+          </p>
+        </section>
       )}
-
-      {/* ── Product ──────────────────────────────────────────────────── */}
-      {category === 'product' && (
-        <>
-          <MetaRow
-            items={[
-              extracted.brand ? { label: 'Brand', value: extracted.brand } : null,
-              extracted.price ? { label: 'Price', value: extracted.price } : null,
-            ].filter((x) => x !== null) as Array<{ label: string; value: string | number }>}
-          />
-        </>
-      )}
-
-      {/* ── Podcast / Music ──────────────────────────────────────────── */}
-      {(category === 'podcast' || category === 'music') && (
-        <>
-          <MetaRow
-            items={[
-              extracted.showName      ? { label: 'Show',    value: extracted.showName }      : null,
-              extracted.episodeNumber ? { label: 'Episode', value: extracted.episodeNumber } : null,
-              extracted.artist        ? { label: 'Artist',  value: extracted.artist }        : null,
-            ].filter((x) => x !== null) as Array<{ label: string; value: string | number }>}
-          />
-        </>
-      )}
-    </div>
+    </>
   )
 }

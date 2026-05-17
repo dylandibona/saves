@@ -1,4 +1,3 @@
-import { Nav } from '@/components/nav'
 import { MapClient } from './map-client'
 import { getMapSaves } from '@/lib/data/map-saves'
 import { getHouseholdId } from '@/lib/data/household'
@@ -16,13 +15,8 @@ export default async function MapPage() {
   const saves = await getMapSaves(householdId)
 
   return (
-    <>
-      <Nav />
-      {/* Full-viewport canvas; bottom-nav floats above it. The top header
-          is a transparent overlay so map fills behind. */}
-      <main className="fixed inset-0" style={{ zIndex: 0 }}>
-        <MapClient saves={saves} />
-      </main>
-    </>
+    <main className="fixed inset-0" style={{ zIndex: 0 }}>
+      <MapClient saves={saves} />
+    </main>
   )
 }

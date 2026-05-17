@@ -1,6 +1,7 @@
-import { Nav } from '@/components/nav'
 import { AddForm } from './add-form'
 import { requireUser } from '@/lib/auth/require-user'
+import { getHouseholdId } from '@/lib/data/household'
+import { createClient } from '@/lib/supabase/server'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Add' }
@@ -14,39 +15,30 @@ export default async function AddPage({
   const initialUrl = params.url ?? ''
   await requireUser(initialUrl ? `/add?url=${encodeURIComponent(initialUrl)}` : '/add')
 
+  // Solo-user detection — if the user is the only member of their household,
+  // hide the MY FAMILY / JUST ME tabs entirely (default visibility=household).
+  const householdId = await getHouseholdId()
+  let memberCount = 1
+  if (householdId) {
+    const supabase = await createClient()
+    const { count } = await supabase
+      .from('household_members')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('household_id', householdId)
+    memberCount = count ?? 1
+  }
+
   return (
-    <>
-      <Nav />
-      <main
-        className="max-w-[640px] mx-auto px-5"
-        style={{
-          paddingTop: '72px',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
-        }}
-      >
-        <header className="mb-8 mt-4">
-          <p
-            className="font-mono uppercase"
-            style={{
-              fontSize: '11px',
-              letterSpacing: '0.18em',
-              color: 'var(--color-mute)',
-            }}
-          >
-            New
-          </p>
-          <h1
-            className="font-display mt-2"
-            style={{
-              fontSize: '48px',
-              color: 'var(--color-bone)',
-            }}
-          >
-            A new <span className="font-serif italic font-normal">find</span>.
-          </h1>
-        </header>
-        <AddForm initialUrl={initialUrl} />
-      </main>
-    </>
+    <main
+      className="mx-auto"
+      style={{
+        maxWidth: '420px',
+        minHeight: '100dvh',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
+      <AddForm initialUrl={initialUrl} memberCount={memberCount} />
+    </main>
   )
 }

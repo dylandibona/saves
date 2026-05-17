@@ -1,6 +1,7 @@
 'use client'
 
 import { motion, AnimatePresence } from 'framer-motion'
+import { useMemo } from 'react'
 import { CATEGORY_LABELS, CATEGORY_COLORS } from '@/lib/utils/time'
 import type { Database } from '@/lib/types/supabase'
 import type { ExtractedData } from '@/lib/enrichment/enrich'
@@ -8,15 +9,14 @@ import type { ExtractedData } from '@/lib/enrichment/enrich'
 type SaveCategory = Database['public']['Enums']['save_category']
 
 /**
- * Live "build" preview that materializes alongside enrichment streaming.
+ * Capture build state — drives every visible part of /add.
  *
- * Driven by BuildState which the parent (AddForm) updates as SSE events
- * arrive from /api/enrich-stream. Each visual element transitions in
- * the moment its corresponding field becomes available.
+ * Parent (AddForm) consumes the /api/enrich-stream SSE feed and updates
+ * this state; the components in this file render the live capture
+ * surface (hero slot, title slot, EXTRACTED panel, ENRICHED chip).
  *
- * This is the signature moment of the product — the user pastes a URL
- * and watches the save card *build itself*. Pacing and polish here matter
- * more than almost anywhere else in the app.
+ * Per Stratum v2 handoff §4.2 — italic serif is reserved for the
+ * resolved capture title only; every other surface is sans + mono.
  */
 
 export type BuildStatus =
@@ -30,6 +30,8 @@ export type BuildStatus =
 
 export type BuildState = {
   status: BuildStatus
+  /** Mirrors SSE `phase` enum directly — used to derive the centered verb. */
+  phase: string
   urlType?: 'google_maps' | 'instagram' | 'youtube' | 'generic'
   siteName?: string | null
   imageUrl?: string | null
@@ -54,6 +56,7 @@ export type BuildState = {
 
 export const EMPTY_BUILD_STATE: BuildState = {
   status: 'idle',
+  phase: 'idle',
   ingredients: [],
   instructions: [],
   exercises: [],
@@ -66,443 +69,602 @@ export const EMPTY_BUILD_STATE: BuildState = {
   mediaDetail: {},
 }
 
-// ── Motion presets ────────────────────────────────────────────────────
-const fadeIn = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-  transition: { duration: 0.32, ease: 'easeOut' as const },
+// Poetic phase labels mapped from SSE phases. Lowercase, mono.
+// Each ~same length so the centered status doesn't jump width.
+const PHASE_LABELS: Record<string, string> = {
+  idle: '—',
+  starting: 'opening',
+  detected: 'spotted',
+  fetching: 'reading',
+  og_parsed: 'parsing',
+  og: 'parsing',
+  place_looking_up: 'placing',
+  place_found: 'placed',
+  classifying: 'thinking',
+  classified: 'placed',
+  titled: 'titled',
+  subtitled: 'sourced',
+  noted: 'noted',
+  extracting_section: 'gleaning',
+  ingredient: 'gleaning',
+  instruction: 'gleaning',
+  exercise: 'gleaning',
+  place_detail: 'gleaning',
+  article_detail: 'gleaning',
+  movie_detail: 'gleaning',
+  product_detail: 'gleaning',
+  media_detail: 'gleaning',
+  recipe_meta: 'gleaning',
+  workout_meta: 'gleaning',
+  coords: 'gleaning',
+  complete: 'kept',
+  error: 'paused',
 }
 
-const listItem = {
-  initial: { opacity: 0, x: -8 },
-  animate: { opacity: 1, x: 0 },
-  transition: { duration: 0.22, ease: 'easeOut' as const },
-}
+const STRAT_EASE = [0.2, 0.8, 0.2, 1] as const
 
-const chipBloom = {
-  initial: { opacity: 0, scale: 0.85 },
-  animate: { opacity: 1, scale: 1 },
-  transition: { duration: 0.42, ease: [0.16, 1, 0.3, 1] as [number, number, number, number] },
-}
-
-// ─── Component ────────────────────────────────────────────────────────
-
-export function BuildPreview({ state }: { state: BuildState }) {
-  // Render nothing in idle state; AddForm decides when to mount the card
-  if (state.status === 'idle') return null
-
-  if (state.status === 'error') {
-    return (
-      <div
-        className="rounded-2xl px-4 py-3"
-        style={{
-          background: 'rgba(244,63,94,0.06)',
-          border: '1px solid rgba(244,63,94,0.20)',
-        }}
-      >
-        <p className="font-mono text-[11px] text-rose-300/85">Couldn&rsquo;t build a preview.</p>
-        <p className="text-[13px] text-white/55 mt-1 leading-relaxed">
-          {state.errorMessage ?? 'Try again, or fill in the fields below by hand.'}
-        </p>
-      </div>
-    )
-  }
-
-  const color = state.category ? CATEGORY_COLORS[state.category] ?? '#888' : '#666'
-  const categoryLabel = state.category ? CATEGORY_LABELS[state.category] : null
-
-  // Featured active-verb moment. The build is doing real work — naming it
-  // out loud makes the magic legible. Lives in the title slot until the
-  // real title arrives, then fades out and gets replaced.
-  const verb: string | null =
-    state.title
-      ? null
-      : state.status === 'fetching'    ? 'Reading'
-      : state.status === 'classifying' ? 'Distilling'
-      : state.status === 'starting'    ? 'Receiving'
-      : null
+/**
+ * Hero image slot — 100% × 120, 4px radius.
+ *
+ * Empty state shimmers in the category tone (or dim until classified).
+ * Filled fades in over 600ms. At phase=complete a tinted halo lands.
+ */
+export function HeroSlot({
+  imageUrl,
+  category,
+  phase,
+}: {
+  imageUrl?: string | null
+  category?: SaveCategory | null
+  phase: string
+}) {
+  const tone = category ? CATEGORY_COLORS[category] : 'rgba(244,243,239,0.55)'
+  const hasImage = Boolean(imageUrl)
+  const complete = phase === 'complete'
 
   return (
-    <motion.div
-      layout
-      transition={{ duration: 0.28, ease: 'easeOut' as const }}
-      className="rounded-2xl overflow-hidden"
+    <div
       style={{
-        background: 'rgba(255,255,255,0.025)',
-        border: '1px solid rgba(255,255,255,0.07)',
+        position: 'relative',
+        width: '100%',
+        height: 120,
+        borderRadius: 4,
+        overflow: 'hidden',
+        background: hasImage ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.025)',
+        boxShadow: complete
+          ? `inset 0 0 0 0.5px ${tone}, 0 8px 24px -8px ${tone}`
+          : 'inset 0 0 0 0.5px rgba(255,255,255,0.07)',
+        transition: 'box-shadow 0.5s var(--ease-strat, ease)',
       }}
     >
-      {/* Hero image — fades in once OG data arrives */}
+      {/* Shimmer — only while empty */}
+      {!hasImage && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `linear-gradient(90deg, transparent 0%, ${tone} 50%, transparent 100%)`,
+            opacity: 0.18,
+            animation: 'capShimmer 1.8s ease-in-out infinite',
+          }}
+        />
+      )}
+
+      {/* The image */}
       <AnimatePresence>
-        {state.imageUrl && (
-          <motion.div
-            key={state.imageUrl}
-            initial={{ opacity: 0, scale: 1.04 }}
+        {imageUrl && (
+          <motion.img
+            key={imageUrl}
+            initial={{ opacity: 0, scale: 1.03 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.48, ease: 'easeOut' as const }}
-            className="relative aspect-[16/9] overflow-hidden bg-white/[0.03]"
+            transition={{ duration: 0.6, ease: STRAT_EASE }}
+            src={imageUrl}
+            alt=""
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Bottom darkening gradient */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background:
+            'linear-gradient(180deg, rgba(0,0,0,0) 55%, rgba(0,0,0,0.35) 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* "extracted from page" caption — once image lands */}
+      <AnimatePresence>
+        {hasImage && (
+          <motion.div
+            key="caption"
+            initial={{ opacity: 0, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, ease: STRAT_EASE, delay: 0.15 }}
+            style={{
+              position: 'absolute',
+              left: 10,
+              bottom: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontFamily: 'var(--font-mono), ui-monospace, monospace',
+              fontSize: 8.5,
+              letterSpacing: '0.14em',
+              textTransform: 'uppercase',
+              color: 'rgba(255,255,255,0.82)',
+            }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={state.imageUrl} alt="" className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-[oklch(0.10_0.08_262)]/40 to-transparent" />
-            {/* Category color tint at bottom */}
-            {state.category && (
-              <motion.div
-                {...fadeIn}
-                className="absolute inset-x-0 bottom-0 h-20"
-                style={{ background: `linear-gradient(to top, ${color}26, transparent)` }}
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+              <rect x="1" y="2" width="10" height="8" rx="1" stroke="currentColor" strokeWidth="1" />
+              <circle cx="4" cy="5" r="0.9" fill="currentColor" />
+              <path
+                d="M2 8.5L4.5 6.5L7 8L10 5.5"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
-            )}
+            </svg>
+            extracted from page
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="p-4 space-y-3">
-        {/* Header row — category chip only (verb moved to title slot) */}
-        <div className="flex items-center gap-2 min-h-[20px]">
-          <AnimatePresence mode="wait">
-            {state.category && categoryLabel && (
-              <motion.span
-                key={state.category}
-                {...chipBloom}
-                className="font-mono text-[10px] tracking-wider px-2.5 py-0.5 rounded-full"
-                style={{
-                  background: `linear-gradient(180deg, ${color}f0 0%, ${color}cc 100%)`,
-                  border: `1px solid ${color}`,
-                  color: 'oklch(0.10 0.09 262)',
-                  boxShadow: `0 2px 0 rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.36)`,
-                }}
-              >
-                {categoryLabel}
-              </motion.span>
-            )}
-          </AnimatePresence>
-
-          {state.confidence === 'low' && state.category && (
-            <motion.span
-              {...fadeIn}
-              className="font-mono text-[9px] tracking-wider text-white/30"
-            >
-              not 100% sure
-            </motion.span>
-          )}
-
-          {state.siteName && (
-            <motion.span
-              {...fadeIn}
-              className="font-mono text-[10px] text-white/30 ml-auto"
-            >
-              {state.siteName}
-            </motion.span>
-          )}
-        </div>
-
-        {/* Active verb — featured "live work" moment in the title slot */}
-        <AnimatePresence mode="wait">
-          {verb && (
-            <ActiveVerb key={verb} verb={verb} />
-          )}
-        </AnimatePresence>
-
-        {/* Title */}
-        <AnimatePresence>
-          {state.title && (
-            <motion.h3
-              key={state.title}
-              {...fadeIn}
-              className="font-serif text-lg text-white/92 leading-snug"
-            >
-              {state.title}
-            </motion.h3>
-          )}
-        </AnimatePresence>
-
-        {/* Subtitle */}
-        <AnimatePresence>
-          {state.subtitle && (
-            <motion.p
-              key={state.subtitle}
-              {...fadeIn}
-              className="text-[13px] text-white/55 leading-relaxed line-clamp-3"
-            >
-              {state.subtitle}
-            </motion.p>
-          )}
-        </AnimatePresence>
-
-        {/* Note suggestion */}
-        <AnimatePresence>
-          {state.note && (
-            <motion.p
-              {...fadeIn}
-              className="font-mono text-[10px] text-white/30 italic leading-relaxed"
-            >
-              {state.note}
-            </motion.p>
-          )}
-        </AnimatePresence>
-
-        {/* Recipe meta + ingredients + instructions */}
-        {(state.recipeMeta.totalTime || state.recipeMeta.servings) && (
-          <MetaRow
-            items={[
-              state.recipeMeta.totalTime ? { label: 'Time', value: state.recipeMeta.totalTime } : null,
-              state.recipeMeta.servings ? { label: 'Serves', value: String(state.recipeMeta.servings) } : null,
-            ].filter((x): x is { label: string; value: string } => x !== null)}
-          />
-        )}
-
-        {state.ingredients.length > 0 && (
-          <Section label="Ingredients">
-            <ul className="space-y-1">
-              {state.ingredients.map((ing, i) => (
-                <motion.li
-                  key={i}
-                  {...listItem}
-                  className="text-[13px] text-white/75 leading-relaxed pl-3 relative before:absolute before:left-0 before:top-[8px] before:w-1 before:h-1 before:rounded-full before:bg-white/30"
-                >
-                  {ing}
-                </motion.li>
-              ))}
-            </ul>
-          </Section>
-        )}
-
-        {state.instructions.length > 0 && (
-          <Section label="Instructions">
-            <ol className="space-y-2">
-              {state.instructions.map((step, i) => (
-                <motion.li key={i} {...listItem} className="flex gap-2.5 text-[13px] text-white/75 leading-relaxed">
-                  <span className="font-mono text-[10px] text-white/40 tabular-nums shrink-0 w-4 text-right">
-                    {i + 1}
-                  </span>
-                  <span>{step}</span>
-                </motion.li>
-              ))}
-            </ol>
-          </Section>
-        )}
-
-        {/* Workout meta + exercises */}
-        {(state.workoutMeta.duration || state.workoutMeta.equipment?.length) && (
-          <MetaRow
-            items={[
-              state.workoutMeta.duration ? { label: 'Duration', value: state.workoutMeta.duration } : null,
-              state.workoutMeta.equipment?.length
-                ? { label: 'Equipment', value: state.workoutMeta.equipment.join(', ') }
-                : null,
-            ].filter((x): x is { label: string; value: string } => x !== null)}
-          />
-        )}
-
-        {state.exercises.length > 0 && (
-          <Section label="Exercises">
-            <ul className="space-y-1.5">
-              {state.exercises.map((ex, i) => (
-                <motion.li
-                  key={i}
-                  {...listItem}
-                  className="rounded-lg px-3 py-2 text-[13px] flex items-baseline justify-between gap-2"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.05)',
-                  }}
-                >
-                  <span className="text-white/82 font-serif">{ex.name}</span>
-                  <span className="font-mono text-[10px] text-white/45 tabular-nums">
-                    {[ex.sets && `${ex.sets} sets`, ex.reps && `${ex.reps} reps`].filter(Boolean).join(' · ')}
-                  </span>
-                </motion.li>
-              ))}
-            </ul>
-          </Section>
-        )}
-
-        {/* Place / restaurant / hotel detail */}
-        {(state.placeDetail.address ||
-          state.placeDetail.hours ||
-          state.placeDetail.phone ||
-          state.placeDetail.website ||
-          state.placeDetail.priceLevel) && (
-          <motion.div {...fadeIn} className="space-y-2">
-            {state.placeDetail.address && (
-              <p className="text-[13px] text-white/70 leading-relaxed">{state.placeDetail.address}</p>
-            )}
-            <MetaRow
-              items={[
-                state.placeDetail.hours ? { label: 'Hours', value: state.placeDetail.hours } : null,
-                state.placeDetail.phone ? { label: 'Phone', value: state.placeDetail.phone } : null,
-                state.placeDetail.priceLevel ? { label: 'Price', value: state.placeDetail.priceLevel } : null,
-              ].filter((x): x is { label: string; value: string } => x !== null)}
-            />
-            {state.placeDetail.website && (
-              <a
-                href={state.placeDetail.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block font-mono text-[11px] text-white/45 hover:text-white/75 underline underline-offset-4 decoration-white/20 break-all"
-              >
-                {state.placeDetail.website.replace(/^https?:\/\//, '')}
-              </a>
-            )}
-          </motion.div>
-        )}
-
-        {/* Article / book */}
-        {(state.articleDetail.author ||
-          state.articleDetail.summary ||
-          state.articleDetail.readTime ||
-          state.articleDetail.publishedAt) && (
-          <motion.div {...fadeIn} className="space-y-2">
-            <MetaRow
-              items={[
-                state.articleDetail.author ? { label: 'Author', value: state.articleDetail.author } : null,
-                state.articleDetail.readTime ? { label: 'Read', value: state.articleDetail.readTime } : null,
-                state.articleDetail.publishedAt ? { label: 'Published', value: state.articleDetail.publishedAt } : null,
-              ].filter((x): x is { label: string; value: string } => x !== null)}
-            />
-            {state.articleDetail.summary && (
-              <p className="text-[13px] text-white/70 font-serif leading-relaxed">
-                {state.articleDetail.summary}
-              </p>
-            )}
-          </motion.div>
-        )}
-
-        {/* Movie / TV */}
-        {(state.movieDetail.year || state.movieDetail.director || state.movieDetail.runtime) && (
-          <MetaRow
-            items={[
-              state.movieDetail.year ? { label: 'Year', value: String(state.movieDetail.year) } : null,
-              state.movieDetail.runtime ? { label: 'Runtime', value: state.movieDetail.runtime } : null,
-              state.movieDetail.director ? { label: 'Director', value: state.movieDetail.director } : null,
-            ].filter((x): x is { label: string; value: string } => x !== null)}
-          />
-        )}
-
-        {/* Product */}
-        {(state.productDetail.brand || state.productDetail.price) && (
-          <MetaRow
-            items={[
-              state.productDetail.brand ? { label: 'Brand', value: state.productDetail.brand } : null,
-              state.productDetail.price ? { label: 'Price', value: state.productDetail.price } : null,
-            ].filter((x): x is { label: string; value: string } => x !== null)}
-          />
-        )}
-
-        {/* Podcast / music */}
-        {(state.mediaDetail.episodeNumber || state.mediaDetail.showName || state.mediaDetail.artist) && (
-          <MetaRow
-            items={[
-              state.mediaDetail.showName ? { label: 'Show', value: state.mediaDetail.showName } : null,
-              state.mediaDetail.episodeNumber
-                ? { label: 'Episode', value: String(state.mediaDetail.episodeNumber) }
-                : null,
-              state.mediaDetail.artist ? { label: 'Artist', value: state.mediaDetail.artist } : null,
-            ].filter((x): x is { label: string; value: string } => x !== null)}
-          />
-        )}
-
-        {/* Coordinates */}
-        {state.coords && (
-          <motion.p
-            {...fadeIn}
-            className="font-mono text-[10px] text-white/22 tracking-wider tabular-nums"
-          >
-            {state.coords.lat.toFixed(5)}, {state.coords.lng.toFixed(5)}
-          </motion.p>
-        )}
-      </div>
-    </motion.div>
-  )
-}
-
-function Section({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <motion.div {...fadeIn} className="space-y-1.5 pt-1">
-      <p className="font-mono text-[9px] tracking-widest text-white/30 uppercase">{label}</p>
-      {children}
-    </motion.div>
-  )
-}
-
-function MetaRow({ items }: { items: Array<{ label: string; value: string }> }) {
-  if (items.length === 0) return null
-  return (
-    <motion.dl {...fadeIn} className="flex flex-wrap gap-x-4 gap-y-1">
-      {items.map(({ label, value }) => (
-        <div key={label} className="flex items-baseline gap-1.5">
-          <dt className="font-mono text-[9px] tracking-widest text-white/30 uppercase">{label}</dt>
-          <dd className="font-mono text-[11px] text-white/65 tabular-nums">{value}</dd>
-        </div>
-      ))}
-    </motion.dl>
+      <style>{`
+        @keyframes capShimmer {
+          0%   { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
+    </div>
   )
 }
 
 /**
- * The active-verb moment — the visible expression of "Finds is doing
- * real work right now." Inspired by Claude's animated verbs ("Thinking",
- * "Pondering", "Searching"): the work has a name and a voice while it's
- * happening, not a hidden spinner.
- *
- * Renders as a serif italic display word in the title slot, with three
- * dots pulsing in sequence beside it. Swaps cleanly via AnimatePresence
- * when the verb changes (Reading → Distilling → Locating → real title).
+ * Title slot — centered mono verb while processing, italic serif title
+ * once resolved. The verb pulse + the resolved title swap are the
+ * signature animation moment of the product.
  */
-function ActiveVerb({ verb }: { verb: string }) {
+export function TitleSlot({
+  title,
+  phase,
+  category,
+}: {
+  title?: string | null
+  phase: string
+  category?: SaveCategory | null
+}) {
+  const tone = category ? CATEGORY_COLORS[category] : null
+  const verbColor = tone ?? 'rgba(244,243,239,0.55)'
+  const phaseLabel = PHASE_LABELS[phase] ?? phase
+  const idle = phase === 'idle'
+
+  return (
+    <div
+      style={{
+        minHeight: 72,
+        marginTop: 14,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: title ? 'stretch' : 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <AnimatePresence mode="wait">
+        {title ? (
+          <motion.h2
+            key="title"
+            initial={{ opacity: 0, y: 8, filter: 'blur(3px)' }}
+            animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.55, ease: STRAT_EASE }}
+            className="font-serif-display"
+            style={{
+              margin: 0,
+              fontSize: 28,
+              fontWeight: 400,
+              lineHeight: 1.05,
+              letterSpacing: '-0.022em',
+              color: 'var(--color-paper)',
+              textWrap: 'balance',
+            }}
+          >
+            {title}
+          </motion.h2>
+        ) : (
+          <motion.div
+            key={phaseLabel}
+            initial={{ opacity: 0, y: 3 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -3 }}
+            transition={{ duration: 0.36, ease: STRAT_EASE }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontFamily: 'var(--font-mono), ui-monospace, monospace',
+              fontSize: 11,
+              letterSpacing: '0.18em',
+              textTransform: 'lowercase',
+              color: verbColor,
+              transition: 'color 0.32s var(--ease-strat, ease)',
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: 999,
+                background: 'currentColor',
+                boxShadow: idle ? 'none' : '0 0 10px currentColor',
+                animation: idle ? 'none' : 'capPulse 0.9s infinite ease-in-out',
+                opacity: idle ? 0.5 : 1,
+              }}
+            />
+            {phaseLabel}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tinted rule below resolved title */}
+      <AnimatePresence>
+        {title && tone && (
+          <motion.div
+            key="rule"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 24, opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.4, ease: STRAT_EASE, delay: 0.18 }}
+            style={{
+              marginTop: 7,
+              height: 1,
+              background: tone,
+              boxShadow: `0 0 6px ${tone}`,
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      <style>{`
+        @keyframes capPulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.35; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+/**
+ * Field log row — mono label + mono value. Animates in on mount.
+ */
+function FieldRow({ label, value }: { label: string; value: string }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 3 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.36, ease: 'easeOut' as const }}
-      className="flex items-baseline gap-2.5"
+      transition={{ duration: 0.3, ease: STRAT_EASE }}
+      style={{
+        display: 'grid',
+        gridTemplateColumns: '92px 1fr',
+        padding: '8px 0',
+        borderBottom: '1px solid var(--color-hairline)',
+      }}
     >
       <span
         style={{
-          fontFamily: 'var(--font-serif)',
-          fontStyle: 'italic',
-          fontVariationSettings: "'opsz' 144, 'wght' 400, 'SOFT' 50",
-          fontSize: '26px',
-          letterSpacing: '-0.02em',
-          color: 'var(--color-paper)',
-          lineHeight: 1,
+          fontFamily: 'var(--font-mono), ui-monospace, monospace',
+          fontSize: 9,
+          color: 'var(--color-mute)',
+          letterSpacing: '0.14em',
+          textTransform: 'uppercase',
+          alignSelf: 'center',
         }}
       >
-        {verb}
+        {label}
       </span>
-      <TypingDots />
+      <span
+        style={{
+          fontFamily: 'var(--font-mono), ui-monospace, monospace',
+          fontSize: 11,
+          color: 'var(--color-paper)',
+          alignSelf: 'center',
+          wordBreak: 'break-word',
+        }}
+      >
+        {value}
+      </span>
     </motion.div>
   )
 }
 
-function TypingDots() {
+/**
+ * Derive the mono field log from BuildState. Order matters — early
+ * phases (DETECTED, FETCHING, METADATA, CLASSIFYING) appear first, then
+ * extracted facts as they arrive.
+ */
+function deriveFields(state: BuildState): Array<{ label: string; value: string }> {
+  const rows: Array<{ label: string; value: string }> = []
+
+  // ── Live phase rows (the build narrative) ──
+  if (state.urlType) {
+    const pretty =
+      state.urlType === 'google_maps' ? 'google maps url'
+      : state.urlType === 'instagram' ? 'instagram reel'
+      : state.urlType === 'youtube' ? 'youtube video'
+      : 'web page'
+    rows.push({ label: 'detected', value: pretty })
+  }
+
+  if (state.siteName || state.imageUrl) {
+    if (state.siteName) {
+      rows.push({ label: 'fetching', value: state.siteName })
+    } else if (state.imageUrl) {
+      rows.push({ label: 'fetching', value: 'page loaded' })
+    }
+  }
+
+  if (state.imageUrl) {
+    rows.push({ label: 'metadata', value: 'open graph + caption' })
+  }
+
+  // ── Category row only while classifying (no title yet) ──
+  if (state.status === 'classifying' && !state.title) {
+    rows.push({ label: 'classifying', value: 'thinking…' })
+  }
+
+  // ── Extracted facts ──
+  if (state.recipeMeta.totalTime) {
+    rows.push({ label: 'cook', value: state.recipeMeta.totalTime })
+  }
+  if (state.recipeMeta.servings) {
+    rows.push({ label: 'serves', value: String(state.recipeMeta.servings) })
+  }
+  if (state.ingredients.length > 0) {
+    rows.push({
+      label: 'ingredients',
+      value: state.ingredients.length === 1 ? '1 item' : `${state.ingredients.length} items`,
+    })
+  }
+  if (state.instructions.length > 0) {
+    rows.push({
+      label: 'steps',
+      value: state.instructions.length === 1 ? '1 step' : `${state.instructions.length} steps`,
+    })
+  }
+
+  // Workouts
+  if (state.workoutMeta.duration) {
+    rows.push({ label: 'duration', value: state.workoutMeta.duration })
+  }
+  if (state.workoutMeta.equipment?.length) {
+    rows.push({ label: 'equipment', value: state.workoutMeta.equipment.join(', ') })
+  }
+  if (state.exercises.length > 0) {
+    rows.push({
+      label: 'exercises',
+      value: state.exercises.length === 1 ? '1 move' : `${state.exercises.length} moves`,
+    })
+  }
+
+  // Place
+  if (state.placeDetail.address) rows.push({ label: 'address', value: state.placeDetail.address })
+  if (state.placeDetail.hours) rows.push({ label: 'hours', value: state.placeDetail.hours })
+  if (state.placeDetail.phone) rows.push({ label: 'phone', value: state.placeDetail.phone })
+  if (state.placeDetail.priceLevel) rows.push({ label: 'price', value: state.placeDetail.priceLevel })
+
+  // Article
+  if (state.articleDetail.author) rows.push({ label: 'author', value: state.articleDetail.author })
+  if (state.articleDetail.readTime) rows.push({ label: 'read', value: state.articleDetail.readTime })
+  if (state.articleDetail.publishedAt)
+    rows.push({ label: 'published', value: state.articleDetail.publishedAt })
+
+  // Movie
+  if (state.movieDetail.year) rows.push({ label: 'year', value: String(state.movieDetail.year) })
+  if (state.movieDetail.runtime) rows.push({ label: 'runtime', value: state.movieDetail.runtime })
+  if (state.movieDetail.director) rows.push({ label: 'director', value: state.movieDetail.director })
+
+  // Product
+  if (state.productDetail.brand) rows.push({ label: 'brand', value: state.productDetail.brand })
+  if (state.productDetail.price) rows.push({ label: 'price', value: state.productDetail.price })
+
+  // Media
+  if (state.mediaDetail.showName) rows.push({ label: 'show', value: state.mediaDetail.showName })
+  if (state.mediaDetail.episodeNumber)
+    rows.push({ label: 'episode', value: String(state.mediaDetail.episodeNumber) })
+  if (state.mediaDetail.artist) rows.push({ label: 'artist', value: state.mediaDetail.artist })
+
+  // Coords
+  if (state.coords) {
+    rows.push({
+      label: 'coords',
+      value: `${state.coords.lat.toFixed(4)}, ${state.coords.lng.toFixed(4)}`,
+    })
+  }
+
+  // Note (final beat)
+  if (state.note) {
+    rows.push({
+      label: 'note',
+      value: state.note.length > 64 ? state.note.slice(0, 60) + '…' : state.note,
+    })
+  }
+
+  return rows
+}
+
+/**
+ * EXTRACTED panel — section label + READY chip + grid of mono rows.
+ * Empty state: blinking caret + "waiting for the page".
+ */
+export function FieldLog({ state }: { state: BuildState }) {
+  const tone = state.category ? CATEGORY_COLORS[state.category] : null
+  const rows = useMemo(() => deriveFields(state), [state])
+  const complete = state.phase === 'complete'
+
   return (
-    <span
-      aria-hidden
-      className="inline-flex gap-[3px] items-baseline"
-      style={{ marginBottom: '6px' }}
-    >
-      {[0, 1, 2].map(i => (
-        <motion.span
-          key={i}
-          className="inline-block rounded-full"
+    <div style={{ marginTop: 18 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          paddingBottom: 6,
+          borderBottom: '1px solid var(--color-hairline)',
+        }}
+      >
+        <span
           style={{
-            width: '5px',
-            height: '5px',
-            background: 'var(--color-paper)',
+            fontFamily: 'var(--font-mono), ui-monospace, monospace',
+            fontSize: 9,
+            color: 'var(--color-mute)',
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
           }}
-          animate={{ opacity: [0.18, 0.85, 0.18] }}
-          transition={{
-            duration: 1.15,
-            repeat: Infinity,
-            ease: 'easeInOut',
-            delay: i * 0.18,
-          }}
-        />
-      ))}
-    </span>
+        >
+          Extracted
+        </span>
+        <AnimatePresence>
+          {complete && tone && (
+            <motion.span
+              key="ready"
+              initial={{ opacity: 0, y: 3 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.32, ease: STRAT_EASE }}
+              style={{
+                fontFamily: 'var(--font-mono), ui-monospace, monospace',
+                fontSize: 9,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                color: tone,
+              }}
+            >
+              Ready ✓
+            </motion.span>
+          )}
+        </AnimatePresence>
+      </div>
+
+      <div style={{ minHeight: 130 }}>
+        {rows.length === 0 ? (
+          <div
+            style={{
+              padding: '14px 0',
+              fontFamily: 'var(--font-mono), ui-monospace, monospace',
+              fontSize: 10.5,
+              color: 'var(--color-mute)',
+            }}
+          >
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 4,
+                height: 11,
+                background: 'var(--color-mute)',
+                animation: 'capCaret 1s steps(2) infinite',
+                verticalAlign: 'middle',
+                marginRight: 6,
+              }}
+            />
+            waiting for the page
+          </div>
+        ) : (
+          rows.map(row => <FieldRow key={`${row.label}-${row.value}`} label={row.label} value={row.value} />)
+        )}
+      </div>
+
+      <style>{`
+        @keyframes capCaret {
+          0%   { opacity: 1; }
+          50%  { opacity: 0; }
+          100% { opacity: 1; }
+        }
+      `}</style>
+    </div>
+  )
+}
+
+/**
+ * Post-enrichment callout — only at phase=complete.
+ * Tinted ✓ ENRICHED pill + plain-language "Ready to add… Tap Keep below."
+ */
+export function EnrichedCallout({
+  category,
+}: {
+  category?: SaveCategory | null
+}) {
+  if (!category) return null
+  const tone = CATEGORY_COLORS[category]
+  const label = CATEGORY_LABELS[category]?.toLowerCase() ?? category
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5, ease: STRAT_EASE }}
+      style={{
+        marginTop: 14,
+        borderTop: '1px solid var(--color-hairline)',
+        paddingTop: 12,
+      }}
+    >
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 6,
+          fontFamily: 'var(--font-mono), ui-monospace, monospace',
+          fontSize: 9,
+          letterSpacing: '0.16em',
+          textTransform: 'uppercase',
+          color: tone,
+          padding: '4px 8px',
+          background: `color-mix(in oklab, ${tone} 14%, transparent)`,
+          border: `0.5px solid ${tone}`,
+          borderRadius: 4,
+        }}
+      >
+        <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
+          <path
+            d="M1.5 4.5L3.5 6.5L7.5 2.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+        Enriched
+      </div>
+      <div
+        style={{
+          marginTop: 10,
+          fontFamily: 'var(--font-sans), system-ui, sans-serif',
+          fontSize: 12,
+          lineHeight: 1.5,
+          color: 'var(--color-mute)',
+        }}
+      >
+        Ready to add to your{' '}
+        <span style={{ color: tone }}>{label}s</span>. Tap{' '}
+        <span style={{ color: 'var(--color-paper)', fontWeight: 500 }}>Keep</span> below to save it.
+      </div>
+    </motion.div>
   )
 }

@@ -1,6 +1,7 @@
-import { Nav } from '@/components/nav'
+import Link from 'next/link'
 import { requireUser } from '@/lib/auth/require-user'
 import { createClient } from '@/lib/supabase/server'
+import { Wordmark } from '@/components/wordmark'
 import { PLANS } from '@/lib/billing/stripe'
 import type { Metadata } from 'next'
 
@@ -54,48 +55,57 @@ export default async function BillingPage({
       (ownerProfile?.display_name?.trim() || ownerProfile?.email?.split('@')[0]) ?? 'the household owner'
 
     return (
-      <>
-        <Nav />
-        <main
-          className="max-w-[640px] mx-auto px-5 space-y-10"
-          style={{
-            paddingTop: '72px',
-            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
-          }}
-        >
-          <header className="space-y-1 mt-4">
+      <main
+        className="max-w-[640px] mx-auto space-y-8"
+        style={{
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
+        }}
+      >
+        <div style={{ padding: '14px 20px 8px' }}>
+          <Link href="/" aria-label="Back to library" className="inline-flex">
+            <Wordmark />
+          </Link>
+          <div style={{ marginTop: 16 }}>
             <p
-              className="font-mono uppercase"
+              className="font-mono"
               style={{
-                fontSize: '11px',
-                letterSpacing: '0.18em',
+                fontSize: 9,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
                 color: 'var(--color-mute)',
               }}
             >
               Billing
             </p>
             <h1
-              className="font-display mt-2"
-              style={{ fontSize: '40px', color: 'var(--color-bone)' }}
+              className="font-display"
+              style={{
+                marginTop: 4,
+                fontSize: 24,
+                lineHeight: 1.2,
+                fontWeight: 400,
+                letterSpacing: '-0.02em',
+                color: 'var(--color-paper)',
+              }}
             >
-              Handled by <span className="font-serif italic font-normal">{ownerName}</span>.
+              Handled by <span style={{ color: 'var(--color-paper)', fontWeight: 500 }}>{ownerName}</span>.
             </h1>
-          </header>
+          </div>
+        </div>
 
-          <section
-            className="rounded-2xl p-5"
-            style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            <p className="text-[14px] text-white/75 leading-relaxed">
-              You&rsquo;re a member of {ownerName}&rsquo;s household. Subscription
-              and payment are managed on their account.
-            </p>
-          </section>
-        </main>
-      </>
+        <section
+          className="rounded-[4px] px-4 py-4 mx-5"
+          style={{
+            background: 'var(--color-surface)',
+            border: '0.5px solid var(--color-hairline)',
+          }}
+        >
+          <p className="text-[14px] leading-relaxed" style={{ color: 'var(--color-mute)' }}>
+            You&rsquo;re a member of {ownerName}&rsquo;s household. Subscription
+            and payment are managed on their account.
+          </p>
+        </section>
+      </main>
     )
   }
 
@@ -128,37 +138,44 @@ export default async function BillingPage({
     : null
 
   return (
-    <>
-      <Nav />
-      <main
-        className="max-w-[640px] mx-auto px-5 space-y-10"
-        style={{
-          paddingTop: '72px',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
-        }}
-      >
-
-        <header className="space-y-1 mt-4">
+    <main
+      className="max-w-[640px] mx-auto space-y-8"
+      style={{
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
+      }}
+    >
+      <div style={{ padding: '14px 20px 8px' }}>
+        <Link href="/" aria-label="Back to library" className="inline-flex">
+          <Wordmark />
+        </Link>
+        <div style={{ marginTop: 16 }}>
           <p
-            className="font-mono uppercase"
+            className="font-mono"
             style={{
-              fontSize: '11px',
-              letterSpacing: '0.18em',
+              fontSize: 9,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
               color: 'var(--color-mute)',
             }}
           >
             Billing
           </p>
           <h1
-            className="font-display mt-2"
+            className="font-display"
             style={{
-              fontSize: '48px',
-              color: 'var(--color-bone)',
+              marginTop: 4,
+              fontSize: 24,
+              lineHeight: 1.2,
+              fontWeight: 400,
+              letterSpacing: '-0.02em',
+              color: 'var(--color-paper)',
             }}
           >
-            Your <span className="font-serif italic font-normal">plan</span>.
+            Your plan.
           </h1>
-        </header>
+        </div>
+      </div>
+      <div className="px-5 space-y-10">
 
         {/* Status flash messages from Stripe Checkout redirect */}
         {isSuccess && (
@@ -296,9 +313,8 @@ export default async function BillingPage({
             />
           </div>
         </section>
-
-      </main>
-    </>
+      </div>
+    </main>
   )
 }
 

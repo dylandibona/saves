@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { Sigil } from '@/components/wordmark'
 import { redeemInviteCode } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -43,28 +44,35 @@ export default async function JoinPage({ params }: Props) {
   const isHousehold = preview.kind === 'household'
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center px-5"
-      style={{ background: 'oklch(0.10 0.005 240)' }}
-    >
+    <div className="min-h-screen flex items-center justify-center px-5">
       <div className="w-full max-w-sm space-y-10">
-        <div className="space-y-3">
-          <h1
-            className="font-display"
-            style={{ fontSize: '56px', color: 'var(--color-bone)' }}
-          >
-            Finds<span className="font-serif italic font-normal">.</span>
-          </h1>
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <Sigil size={28} />
+            <span
+              className="font-semibold-ui"
+              style={{ fontSize: 22, color: 'var(--color-paper)', fontWeight: 500 }}
+            >
+              Finds
+            </span>
+          </div>
 
           {previewError || !preview.valid ? (
             <div
-              className="rounded-xl px-4 py-3"
+              className="rounded-[4px] px-4 py-3"
               style={{
                 background: 'rgba(244,63,94,0.08)',
-                border: '1px solid rgba(244,63,94,0.22)',
+                border: '0.5px solid rgba(244,63,94,0.32)',
               }}
             >
-              <p className="text-[14px] text-rose-200/90 leading-relaxed">
+              <p
+                style={{
+                  fontSize: 14,
+                  color: '#fb7185',
+                  lineHeight: 1.5,
+                  letterSpacing: '-0.005em',
+                }}
+              >
                 {preview.reason === 'expired'
                   ? 'This invite has expired. Ask for a fresh link.'
                   : preview.reason === 'used'
@@ -75,12 +83,13 @@ export default async function JoinPage({ params }: Props) {
           ) : (
             <p
               style={{
-                fontSize: '17px',
+                fontSize: 17,
                 color: 'var(--color-mute)',
                 lineHeight: 1.5,
+                letterSpacing: '-0.005em',
               }}
             >
-              <span className="text-white/90">{inviterName}</span>{' '}
+              <span style={{ color: 'var(--color-paper)' }}>{inviterName}</span>{' '}
               {isHousehold
                 ? 'is sharing their library with you.'
                 : 'invited you to Finds.'}
@@ -92,15 +101,28 @@ export default async function JoinPage({ params }: Props) {
           <div className="space-y-3">
             <Link
               href={`/login?invite=${encodeURIComponent(code)}`}
-              className="block w-full h-12 rounded-xl text-[14px] font-semibold transition-all duration-150 inline-flex items-center justify-center"
+              className="block w-full h-12 inline-flex items-center justify-center"
               style={{
-                background: 'oklch(0.96 0.005 80)',
-                color: 'oklch(0.10 0.005 240)',
+                borderRadius: 4,
+                fontSize: 14,
+                fontWeight: 500,
+                background:
+                  'linear-gradient(180deg, var(--color-bone) 0%, oklch(0.92 0.01 80) 100%)',
+                color: 'var(--color-bg)',
+                transition: 'all var(--dur-hover) ease',
               }}
             >
               Sign in to accept
             </Link>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-white/30 text-center">
+            <p
+              className="font-mono text-center"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--color-faint)',
+              }}
+            >
               {isHousehold ? 'household invite' : 'beta invite'}
             </p>
           </div>

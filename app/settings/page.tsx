@@ -1,11 +1,13 @@
 import { headers } from 'next/headers'
-import { Nav } from '@/components/nav'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { requireUser } from '@/lib/auth/require-user'
+import { Wordmark } from '@/components/wordmark'
 import { TokenSection } from './token-section'
 import { InvitesSection } from './invites-section'
 import { TestersSection } from './testers-section'
 import { HouseholdSection } from './household-section'
+import { signOut } from './actions'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Settings' }
@@ -60,38 +62,49 @@ export default async function SettingsPage() {
     : (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://finds.dylandibona.com')
 
   return (
-    <>
-      <Nav />
-      <main
-        className="max-w-[640px] mx-auto px-5 space-y-12"
-        style={{
-          paddingTop: '72px',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
-        }}
-      >
-
-        <header className="space-y-1 mt-4">
+    <main
+      className="max-w-[640px] mx-auto space-y-10"
+      style={{
+        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
+      }}
+    >
+      {/* Header — same chrome as the new Library: sigil + wordmark left,
+          mono section label + count line below. */}
+      <div style={{ padding: '14px 20px 8px' }}>
+        <div className="flex items-center justify-between">
+          <Link href="/" aria-label="Back to library" className="inline-flex">
+            <Wordmark />
+          </Link>
+        </div>
+        <div style={{ marginTop: 16 }}>
           <p
-            className="font-mono uppercase"
+            className="font-mono"
             style={{
-              fontSize: '11px',
-              letterSpacing: '0.18em',
+              fontSize: 9,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
               color: 'var(--color-mute)',
             }}
           >
-            Settings
+            Your&nbsp;account
           </p>
           <h1
-            className="font-display mt-2"
+            className="font-display"
             style={{
-              fontSize: '48px',
-              color: 'var(--color-bone)',
+              marginTop: 4,
+              fontSize: 24,
+              lineHeight: 1.1,
+              fontWeight: 400,
+              letterSpacing: '-0.02em',
+              color: 'var(--color-paper)',
             }}
           >
-            Your <span className="font-serif italic font-normal">place</span>.
+            Your settings.
           </h1>
-        </header>
+        </div>
+      </div>
 
+      <div className="px-5 space-y-10">
         {household?.name && (
           <HouseholdSection
             initialName={household.name}
@@ -159,21 +172,42 @@ export default async function SettingsPage() {
           </ol>
 
           <div
-            className="rounded-xl px-4 py-3 mt-2"
+            className="rounded-[4px] px-4 py-3 mt-2"
             style={{
-              background: 'rgba(0,229,160,0.05)',
-              border: '1px solid rgba(0,229,160,0.18)',
+              background: 'var(--color-surface)',
+              border: '0.5px solid var(--color-hairline)',
             }}
           >
-            <p className="font-mono text-[10px] text-white/50 leading-relaxed">
-              <span className="text-[#00e5a0]">Tip:</span>{' '}
+            <p className="font-mono text-[10px] leading-relaxed" style={{ color: 'var(--color-mute)' }}>
+              <span style={{ color: 'var(--color-paper)' }}>Tip:</span>{' '}
               Anything saved this way uses auto-detected category and visibility = Shared.
               Open the save from your feed to change category, mark private, or edit the title.
             </p>
           </div>
         </section>
 
-      </main>
-    </>
+        {/* Sign out — moved from the old top nav. Plain Server Action form. */}
+        <section className="pt-4">
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="font-mono"
+              style={{
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                color: 'var(--color-mute)',
+                background: 'transparent',
+                border: 0,
+                padding: 0,
+                cursor: 'pointer',
+              }}
+            >
+              Sign out
+            </button>
+          </form>
+        </section>
+      </div>
+    </main>
   )
 }

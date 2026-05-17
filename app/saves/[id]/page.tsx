@@ -1,20 +1,22 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
-import { Nav } from '@/components/nav'
 import { getSaveById } from '@/lib/data/saves'
 import { getHouseholdId } from '@/lib/data/household'
 import { CATEGORY_LABELS, CATEGORY_COLORS, formatRelativeTime } from '@/lib/utils/time'
-import { getUserInitials, getUserColor } from '@/lib/utils/identity'
+import { getUserInitials } from '@/lib/utils/identity'
 import { ExtractedSection } from '@/components/saves/extracted-section'
-import { DeleteButton } from './delete-button'
-import type { ExtractedData } from '@/lib/actions/enrich-url'
+import { OptionsPopup } from './options-popup'
+import type { ExtractedData } from '@/lib/enrichment/enrich'
 import type { Metadata } from 'next'
 import type { Database } from '@/lib/types/supabase'
 
 type SaveCategory = Database['public']['Enums']['save_category']
 
-export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
   const { id } = await params
   try {
     const save = await getSaveById(id)
@@ -24,7 +26,36 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 }
 
-export default async function SaveDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function captionFor(method: string | null | undefined): string {
+  switch (method) {
+    case 'reel':
+    case 'instagram':
+      return 'kept this from a reel.'
+    case 'tiktok':
+      return 'kept this from a TikTok.'
+    case 'maps':
+      return 'kept this from Google Maps.'
+    case 'email':
+      return 'kept this from an email.'
+    case 'sms':
+      return 'kept this from a text.'
+    case 'shortcut':
+      return 'kept this via the iOS Shortcut.'
+    case 'share':
+    case 'pwa-share':
+      return 'kept this from the share sheet.'
+    case 'manual':
+      return 'kept this manually.'
+    default:
+      return 'kept this.'
+  }
+}
+
+export default async function SaveDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const { id } = await params
   const householdId = await getHouseholdId()
 
@@ -39,295 +70,381 @@ export default async function SaveDetailPage({ params }: { params: Promise<{ id:
 
   const cat = save.category as SaveCategory
   const label = CATEGORY_LABELS[cat] ?? cat
-  const color = CATEGORY_COLORS[cat] ?? '#888'
+  const tone = CATEGORY_COLORS[cat] ?? 'oklch(0.78 0.02 100)'
 
   // canonical_data: coords + per-category structured extracted data
   const cd = save.canonical_data as {
     coords?: { lat: number; lng: number }
     extracted?: ExtractedData
   } | null
-  const coords = cd?.coords
   const extracted = cd?.extracted
 
-  // Hostname for the URL chip
-  let hostname: string | null = null
+  // Source hostname (or place subtitle) for the source line
+  let sourceLabel: string | null = null
   if (save.canonical_url) {
-    try { hostname = new URL(save.canonical_url).hostname.replace(/^www\./, '') } catch {}
+    try {
+      sourceLabel = new URL(save.canonical_url).hostname.replace(/^www\./, '')
+    } catch {
+      // fall through
+    }
   }
+  if (!sourceLabel && save.subtitle) sourceLabel = save.subtitle
+
+  // Captures — newest first; the freshest note (with a non-empty text) is the
+  // editorial NOTE block; the timeline below shows every capture as a row.
+  const captures = (save.captures ?? []).slice().sort((a, b) => {
+    return (
+      new Date(b.captured_at ?? 0).getTime() - new Date(a.captured_at ?? 0).getTime()
+    )
+  })
+  const headlineCapture = captures.find((c) => c.note && c.note.trim().length > 0)
+  const headlineSaverInitials = headlineCapture?.users
+    ? getUserInitials(headlineCapture.users)
+    : null
+
+  // Saver initials for meta row — most recent capture's user
+  const latest = captures[0]
+  const latestSaverInitials = latest?.users ? getUserInitials(latest.users) : null
+
+  // Kept time
+  const keptLabel = save.last_captured_at
+    ? formatRelativeTime(save.last_captured_at).replace(/\s+ago$/i, '').toUpperCase()
+    : null
 
   return (
-    <>
-      <Nav />
-      <main
-        className="max-w-[640px] mx-auto px-5 space-y-8"
-        style={{
-          paddingTop: '72px',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 112px)',
-        }}
-      >
-
-        {/* Back */}
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 font-mono text-[10px] tracking-widest text-white/30 hover:text-white/60 transition-colors"
+    <main
+      className="relative w-full"
+      style={{
+        minHeight: '100vh',
+        background: 'var(--color-bg)',
+        color: 'var(--color-paper)',
+      }}
+    >
+      {/* Scrollable body. Generous bottom-pad to clear the floating footer. */}
+      <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 116px)' }}>
+        {/* ── Hero ────────────────────────────────────────────────────────── */}
+        <div
+          className="relative w-full overflow-hidden"
+          style={{
+            height: 184,
+            background: save.hero_image_url
+              ? `center / cover no-repeat url("${save.hero_image_url}")`
+              : `linear-gradient(135deg, color-mix(in oklab, ${tone} 22%, var(--color-bg)) 0%, var(--color-bg) 70%)`,
+            boxShadow: 'inset 0 0 0 0.5px rgba(255,255,255,0.06)',
+          }}
         >
-          <svg width="9" height="9" viewBox="0 0 12 12" fill="none">
-            <path d="M7.5 2.5 4 6l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          All Finds
-        </Link>
-
-        {/* Hero */}
-        {save.hero_image_url && (
-          <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden ring-1 ring-white/[0.08]">
-            <Image
-              src={save.hero_image_url}
-              alt={save.title}
-              fill
-              sizes="(max-width: 640px) 100vw, 512px"
-              className="object-cover"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[oklch(0.10_0.08_262)] via-transparent to-transparent opacity-70" />
-            {/* Color tint at bottom */}
+          {/* darkening gradient */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0) 30%, rgba(0,0,0,0) 60%, rgba(0,0,0,0.6) 100%)',
+            }}
+          />
+          {/* Back chip */}
+          <Link
+            href="/"
+            aria-label="Back to library"
+            className="inline-flex items-center justify-center"
+            style={{
+              position: 'absolute',
+              top: 14,
+              left: 14,
+              width: 36,
+              height: 36,
+              borderRadius: 4,
+              background: 'rgba(8,8,11,0.55)',
+              backdropFilter: 'blur(20px) saturate(170%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(170%)',
+              border: '0.5px solid rgba(244,243,239,0.18)',
+              boxShadow: '0 4px 10px rgba(0,0,0,0.4)',
+              color: 'var(--color-paper)',
+            }}
+          >
+            <svg width="15" height="15" viewBox="0 0 14 14" fill="none">
+              <path
+                d="M8.5 3L4.5 7L8.5 11"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </Link>
+          {/* KEPT stamp */}
+          {keptLabel && (
             <div
-              className="absolute inset-x-0 bottom-0 h-24"
-              style={{ background: `linear-gradient(to top, ${color}28, transparent)` }}
-            />
-          </div>
-        )}
-
-        {/* Header block */}
-        <header className="space-y-3">
-          {/* Category + capture count */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span
-              className="font-mono text-[10px] tracking-wider px-2.5 py-1 rounded-full"
+              className="font-mono inline-flex items-center gap-1.5"
               style={{
-                background: `linear-gradient(180deg, ${color}f0 0%, ${color}cc 100%)`,
-                border: `1px solid ${color}`,
-                color: 'oklch(0.10 0.09 262)',
-                boxShadow: `0 2px 0 rgba(0,0,0,0.50), inset 0 1px 0 rgba(255,255,255,0.36)`,
+                position: 'absolute',
+                right: 14,
+                bottom: 12,
+                fontSize: 8.5,
+                letterSpacing: '0.16em',
+                textTransform: 'uppercase',
+                color: tone,
+                padding: '4px 7px',
+                background: `color-mix(in oklab, ${tone} 18%, rgba(0,0,0,0.6))`,
+                border: `0.5px solid ${tone}`,
+                borderRadius: 4,
               }}
             >
-              {label}
-            </span>
-            {save.capture_count >= 2 && (
-              <span className="font-mono text-[10px] text-white/35 tabular-nums">
-                Saved {save.capture_count}×
-              </span>
-            )}
-            {save.last_captured_at && (
-              <span className="font-mono text-[10px] text-white/25 ml-auto">
-                {formatRelativeTime(save.last_captured_at)}
-              </span>
-            )}
-          </div>
-
-          {/* Title */}
-          <h1 className="font-serif text-3xl text-white/92 leading-tight tracking-tight">
-            {save.visibility === 'private' && (
-              <svg
-                width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="rgba(255,255,255,0.40)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                className="inline-block mr-2.5 align-baseline relative -top-1"
-                aria-label="Private save"
-              >
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+              <svg width="8" height="8" viewBox="0 0 9 9" fill="none">
+                <path
+                  d="M1.5 4.5L3.5 6.5L7.5 2.5"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
               </svg>
-            )}
-            {save.title}
-          </h1>
-
-          {/* Subtitle / address */}
-          {(save.subtitle || save.location_address) && (
-            <p className="text-sm text-white/45 leading-relaxed">
-              {save.subtitle ?? save.location_address}
-            </p>
+              {`KEPT ${keptLabel} AGO`}
+            </div>
           )}
-
-          {/* Description (if richer text exists) */}
-          {save.description && (
-            <p className="text-[15px] text-white/65 leading-relaxed pt-1 max-w-prose">
-              {save.description}
-            </p>
-          )}
-
-          {/* Source URL */}
-          {save.canonical_url && hostname && (
-            <a
-              href={save.canonical_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 font-mono text-[11px] text-white/35 hover:text-white/65 transition-colors"
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-              </svg>
-              {hostname}
-            </a>
-          )}
-        </header>
-
-        {/* Action row */}
-        <div className="flex gap-2 flex-wrap">
-          {save.canonical_url && (
-            <a
-              href={save.canonical_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="chip chip-off font-mono text-[11px] px-4 py-2 rounded-full inline-flex items-center gap-1.5 hover:!text-white"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                <path d="M15 3h6v6M10 14 21 3"/>
-              </svg>
-              Open
-            </a>
-          )}
-
-          {coords && (
-            <a
-              href={`https://maps.google.com/maps?q=${coords.lat},${coords.lng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="chip chip-off font-mono text-[11px] px-4 py-2 rounded-full inline-flex items-center gap-1.5 hover:!text-white"
-            >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                <circle cx="12" cy="10" r="3"/>
-              </svg>
-              Open in Maps
-            </a>
-          )}
-
-          <Link
-            href="/map"
-            className="chip chip-off font-mono text-[11px] px-4 py-2 rounded-full inline-flex items-center gap-1.5 hover:!text-white"
-          >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
-              <line x1="8" y1="2" x2="8" y2="18"/>
-              <line x1="16" y1="6" x2="16" y2="22"/>
-            </svg>
-            View on Map
-          </Link>
-
-          {/* Delete — visually de-emphasized, opens confirmation modal */}
-          <DeleteButton saveId={save.id} saveTitle={save.title} />
         </div>
 
-        {/* Coordinates pill (subtle, informational) */}
-        {coords && (
-          <div className="font-mono text-[10px] text-white/25 tracking-wider tabular-nums">
-            {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
+        {/* ── Meta row ────────────────────────────────────────────────────── */}
+        <div
+          className="font-mono"
+          style={{
+            padding: '18px 18px 0',
+            fontSize: 9.5,
+            letterSpacing: '0.13em',
+            textTransform: 'uppercase',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexWrap: 'wrap',
+          }}
+        >
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: tone }}>
+            <span
+              aria-hidden
+              style={{
+                display: 'inline-block',
+                width: 6,
+                height: 6,
+                borderRadius: 1,
+                background: tone,
+                boxShadow: `0 0 8px ${tone}`,
+              }}
+            />
+            {label}
+          </span>
+          {latestSaverInitials && (
+            <>
+              <span style={{ color: 'rgba(244,243,239,0.25)' }}>·</span>
+              <span style={{ color: 'var(--color-mute)' }}>{latestSaverInitials}</span>
+            </>
+          )}
+          {save.last_captured_at && (
+            <>
+              <span style={{ color: 'rgba(244,243,239,0.25)' }}>·</span>
+              <span style={{ color: 'var(--color-mute)' }}>
+                {formatRelativeTime(save.last_captured_at).replace(/\s+ago$/i, '')}
+              </span>
+            </>
+          )}
+          {save.visibility === 'private' && (
+            <>
+              <span style={{ color: 'rgba(244,243,239,0.25)' }}>·</span>
+              <span
+                style={{ color: 'var(--color-mute)', display: 'inline-flex', alignItems: 'center', gap: 4 }}
+              >
+                <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                Private
+              </span>
+            </>
+          )}
+        </div>
+
+        {/* ── Title ───────────────────────────────────────────────────────── */}
+        <h1
+          className="font-serif-display"
+          style={{
+            margin: '8px 18px 0',
+            fontStyle: 'italic',
+            fontWeight: 400,
+            fontSize: 36,
+            lineHeight: 1.0,
+            letterSpacing: '-0.025em',
+            color: 'var(--color-paper)',
+            textWrap: 'balance',
+          }}
+        >
+          {save.title}
+        </h1>
+
+        {/* ── Source line ─────────────────────────────────────────────────── */}
+        {sourceLabel && (
+          <div
+            className="font-mono"
+            style={{
+              margin: '14px 18px 0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 10,
+              color: 'var(--color-mute)',
+              letterSpacing: '0.04em',
+            }}
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
+              <path
+                d="M5 7l-2 2a2.1 2.1 0 11-3-3l2-2M7 5l2-2a2.1 2.1 0 113 3l-2 2M4 8l4-4"
+                stroke="currentColor"
+                strokeWidth="1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+            {save.canonical_url ? (
+              <a
+                href={save.canonical_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ color: 'inherit' }}
+              >
+                {sourceLabel}
+              </a>
+            ) : (
+              <span>{sourceLabel}</span>
+            )}
           </div>
         )}
 
-        {/* Per-category structured data — the save IS the artifact */}
-        {extracted && Object.keys(extracted).length > 0 && (
-          <ExtractedSection category={cat} extracted={extracted} />
+        {/* ── NOTE block ──────────────────────────────────────────────────── */}
+        {headlineCapture?.note && (
+          <div
+            style={{
+              margin: '18px 18px 0',
+              padding: '12px 14px',
+              borderLeft: `2px solid ${tone}`,
+              background: `color-mix(in oklab, ${tone} 6%, transparent)`,
+              borderRadius: 4,
+            }}
+          >
+            <div
+              className="font-mono"
+              style={{
+                fontSize: 9,
+                color: 'var(--color-mute)',
+                letterSpacing: '0.14em',
+                marginBottom: 4,
+                textTransform: 'uppercase',
+              }}
+            >
+              NOTE{headlineSaverInitials ? ` — ${headlineSaverInitials}` : ''}
+            </div>
+            <div
+              className="font-serif-display"
+              style={{
+                fontStyle: 'italic',
+                fontSize: 15,
+                lineHeight: 1.3,
+                color: 'rgba(244,243,239,0.85)',
+              }}
+            >
+              {`“${headlineCapture.note}”`}
+            </div>
+          </div>
         )}
 
-        {/* Captures timeline */}
-        {save.captures && save.captures.length > 0 && (
-          <section className="space-y-4 pt-2">
-            <h2 className="font-mono text-[10px] tracking-widest text-white/30">
-              Captures
-            </h2>
-            <ol className="relative space-y-4">
-              {/* Vertical thread */}
-              <div className="absolute left-[5px] top-2 bottom-2 w-px bg-white/[0.07]" aria-hidden />
+        {/* ── EXTRACTED summary + per-category lists ──────────────────────── */}
+        {extracted && Object.keys(extracted).length > 0 && (
+          <ExtractedSection category={cat} extracted={extracted} tone={tone} />
+        )}
 
-              {save.captures.map((capture) => {
-                // Self captures: show user initials in user's color.
-                // External recommenders (future): show recommender display_name + their color.
-                const isSelf = capture.recommenders?.kind === 'self' || !capture.recommenders
+        {/* If there's no extracted data but there's a description, surface it
+            so the page still has body. */}
+        {(!extracted || Object.keys(extracted).length === 0) && save.description && (
+          <section style={{ margin: '22px 18px 0' }}>
+            <p
+              style={{
+                fontSize: 13.5,
+                color: 'rgba(244,243,239,0.82)',
+                lineHeight: 1.55,
+              }}
+            >
+              {save.description}
+            </p>
+          </section>
+        )}
+
+        {/* ── Captures timeline ───────────────────────────────────────────── */}
+        {captures.length > 0 && (
+          <section style={{ margin: '24px 18px 0' }}>
+            <div
+              className="font-mono"
+              style={{
+                fontSize: 9,
+                color: 'var(--color-mute)',
+                letterSpacing: '0.16em',
+                paddingBottom: 8,
+                borderBottom: '1px solid var(--color-hairline)',
+              }}
+            >
+              CAPTURED
+            </div>
+            <ol>
+              {captures.map((capture) => {
+                const isSelf =
+                  capture.recommenders?.kind === 'self' || !capture.recommenders
                 const user = capture.users
-                const userInitials = user ? getUserInitials(user) : null
-                const userColor = user ? getUserColor(user) : color
-                const dotColor = isSelf ? userColor : (capture.recommenders?.color ?? color)
+                const initials = user ? getUserInitials(user) : null
                 const displayName = isSelf
-                  ? (user?.display_name ?? userInitials ?? 'You')
-                  : (capture.recommenders?.display_name ?? 'Unknown')
-
+                  ? user?.display_name ?? initials ?? 'You'
+                  : capture.recommenders?.display_name ?? 'Someone'
+                const t = formatRelativeTime(capture.captured_at)
+                  .replace(/\s+ago$/i, '')
+                  .toUpperCase()
                 return (
-                  <li key={capture.id} className="relative pl-7">
-                    {/* Initials chip OR dot */}
-                    {isSelf && userInitials ? (
-                      <span
-                        className="absolute left-0 top-[2px] inline-flex items-center justify-center w-[22px] h-[22px] rounded-full font-mono text-[9px] tracking-wider tabular-nums"
-                        style={{
-                          background: `linear-gradient(180deg, ${userColor}cc 0%, ${userColor}88 100%)`,
-                          border: `1px solid ${userColor}`,
-                          color: 'oklch(0.10 0.09 262)',
-                          boxShadow: `0 0 0 2px oklch(0.10 0.08 262), inset 0 1px 0 rgba(255,255,255,0.32), 0 2px 6px ${userColor}33`,
-                        }}
-                      >
-                        {userInitials}
-                      </span>
-                    ) : (
-                      <span
-                        className="absolute left-[5px] top-[8px] w-[11px] h-[11px] rounded-full"
-                        style={{
-                          background: dotColor,
-                          boxShadow: `0 0 0 2px oklch(0.10 0.08 262), 0 2px 6px ${dotColor}55`,
-                        }}
-                      />
-                    )}
-                    <div className="space-y-0.5">
-                      <div className="flex items-baseline gap-2 flex-wrap">
-                        <span className="text-sm text-white/82">{displayName}</span>
-                        {capture.sources && (
-                          <span className="font-mono text-[10px] text-white/30">
-                            via {capture.sources.display_name}
-                          </span>
-                        )}
-                        <span className="font-mono text-[10px] text-white/22 ml-auto">
-                          {formatRelativeTime(capture.captured_at)}
-                        </span>
-                      </div>
-                      {capture.note && (
-                        <p className="text-[13px] text-white/55 leading-relaxed pt-1">
-                          {capture.note}
-                        </p>
-                      )}
-                    </div>
+                  <li
+                    key={capture.id}
+                    style={{
+                      padding: '10px 0',
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      gap: 10,
+                      fontSize: 12.5,
+                      color: 'rgba(244,243,239,0.78)',
+                    }}
+                  >
+                    <span
+                      className="font-mono"
+                      style={{
+                        fontSize: 9,
+                        color: 'var(--color-mute)',
+                        letterSpacing: '0.14em',
+                        minWidth: 28,
+                      }}
+                    >
+                      {t}
+                    </span>
+                    <span>
+                      <span style={{ color: 'var(--color-paper)', fontWeight: 500 }}>
+                        {displayName}
+                      </span>{' '}
+                      {captionFor(capture.capture_method)}
+                    </span>
                   </li>
                 )
               })}
             </ol>
           </section>
         )}
+      </div>
 
-        {/* Variations (alt versions / cuts of a recipe etc.) */}
-        {save.variations && save.variations.length > 0 && (
-          <section className="space-y-3 pt-2">
-            <h2 className="font-mono text-[10px] tracking-widest text-white/30">
-              Variations
-            </h2>
-            <div className="space-y-2">
-              {save.variations.map((v) => (
-                <div
-                  key={v.id}
-                  className="rounded-xl px-4 py-3 space-y-1"
-                  style={{
-                    background: 'rgba(255,255,255,0.03)',
-                    border: '1px solid rgba(255,255,255,0.07)',
-                  }}
-                >
-                  <p className="font-serif text-base text-white/85">{v.label}</p>
-                  {v.notes && (
-                    <p className="text-[13px] text-white/45 leading-relaxed">{v.notes}</p>
-                  )}
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-      </main>
-    </>
+      {/* ── Footer (action capsule + Options popup) ───────────────────────── */}
+      <OptionsPopup
+        saveId={save.id}
+        saveTitle={save.title}
+        canonicalUrl={save.canonical_url ?? null}
+        categoryTone={tone}
+      />
+    </main>
   )
 }
