@@ -1,28 +1,32 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 
 /**
- * Stratum v2 Dock — closed by default, opens to reveal three nav icons
- * (Library / Map / Settings) and a "+ Keep" pill that navigates to /add.
+ * Stratum Dock — bottom-right floating capsule, always open.
  *
  * Anatomy:
- *   • Bottom-right glass capsule, content-width (not full bleed).
- *   • Closed: single 40×40 cream "+" button.
- *   • Open: 3 nav icons slide in to the left via max-width transition,
- *     then the "+" grows to show its "Keep" label.
- *   • Scroll-down past 60px fades to 55% opacity; scroll-up restores.
- *   • Tap outside (transparent backdrop) collapses.
+ *   • Three nav icons (Library / Map / Settings) left
+ *   • "+ Find" cream pill right — taps go straight to /add
+ *   • Glass capsule body, 4px radius
  *
- * Hidden on:
+ * History: this used to be a closed-by-default FAB that opened the nav
+ * icons on first tap and committed to /add on the second. The two-tap
+ * pattern was clever but hurt discoverability — most users tapped the
+ * + expecting "add now" and were surprised by the in-place expand.
+ * Always-open is one fewer interaction and clearer at a glance.
+ *
+ * The action is labeled "+ Find" rather than "+ Keep" because the unit
+ * of save IS a Find ("add a Find" reads true to the brand).
+ *
+ * Visible on every page except:
  *   • /login + /auth/* + /join/* — no chrome on auth surfaces
- *   • /add               — Capture's Keep button owns this spot
- *   • /saves/[id]        — Detail's Open original / Options bar owns it
+ *   • /add — Capture's Keep button owns the bottom action slot
  *
- * Visible on /map — the Stratum v2 map design includes the dock as the
- * primary nav affordance; the map card floats above it.
+ * Visible on /saves/[id] — Detail's Open original / Options bar makes
+ * room on its right edge for the dock. See app/saves/[id]/options-popup.tsx.
  */
 
 const HIDDEN_ON: Array<(p: string) => boolean> = [
@@ -30,149 +34,88 @@ const HIDDEN_ON: Array<(p: string) => boolean> = [
   (p) => p.startsWith('/auth'),
   (p) => p.startsWith('/join'),
   (p) => p.startsWith('/add'),
-  (p) => p.startsWith('/saves/'),
 ]
 
 export function Dock() {
   const pathname = usePathname()
   const router = useRouter()
-  const [open, setOpen] = useState(false)
-  const [faded, setFaded] = useState(false)
-  const lastScrollY = useRef(0)
 
-  useEffect(() => {
-    const onScroll = () => {
-      const y = window.scrollY
-      const dy = y - lastScrollY.current
-      if (Math.abs(dy) > 4) {
-        setFaded(dy > 0 && y > 60)
-        lastScrollY.current = y
-      }
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [])
-
-  // Reset open state when route changes — fresh page, dock starts closed.
-  useEffect(() => { setOpen(false) }, [pathname])
+  // We render server-side and on first client tick, but the path can
+  // briefly be stale. Recomputing on each render keeps it accurate.
+  const [, setRerenderTick] = useState(0)
+  useEffect(() => { setRerenderTick(t => t + 1) }, [pathname])
 
   if (HIDDEN_ON.some(p => p(pathname))) return null
 
   return (
-    <>
-      {open && (
-        <div
-          onClick={() => setOpen(false)}
-          className="fixed inset-0 z-30"
-          style={{ background: 'transparent' }}
-          aria-hidden
-        />
-      )}
+    <div
+      className="fixed z-40"
+      style={{
+        right: 14,
+        bottom: `calc(env(safe-area-inset-bottom, 0px) + 16px)`,
+      }}
+    >
       <div
-        className="fixed z-40"
+        className="inline-flex items-stretch"
         style={{
-          right: 14,
-          bottom: `calc(env(safe-area-inset-bottom, 0px) + 16px)`,
-          opacity: faded && !open ? 0.55 : 1,
-          transition: 'opacity 0.3s ease',
+          gap: 2,
+          background: 'var(--color-surface-2)',
+          backdropFilter: 'blur(28px) saturate(170%)',
+          WebkitBackdropFilter: 'blur(28px) saturate(170%)',
+          border: '0.5px solid rgba(244,243,239,0.16)',
+          borderRadius: 4,
+          padding: 4,
+          boxShadow: '0 16px 36px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.06) inset',
         }}
       >
-        <div
-          className="inline-flex items-stretch"
+        <NavIcon kind="library"  href="/" />
+        <NavIcon kind="map"      href="/map" />
+        <NavIcon kind="settings" href="/settings" />
+
+        {/* The primary action — "+ Find" cream pill. Single tap routes
+            straight to /add; no preliminary expand step. */}
+        <button
+          type="button"
+          onClick={() => router.push('/add')}
+          aria-label="Add a Find"
           style={{
-            gap: 2,
-            background: 'var(--color-surface-2)',
-            backdropFilter: 'blur(28px) saturate(170%)',
-            WebkitBackdropFilter: 'blur(28px) saturate(170%)',
-            border: '0.5px solid rgba(244,243,239,0.16)',
+            marginLeft: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            padding: '0 14px 0 11px',
+            height: 40,
             borderRadius: 4,
-            padding: 4,
-            boxShadow: '0 16px 36px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.06) inset',
-            transition: 'all 0.32s var(--ease-strat)',
+            background:
+              'linear-gradient(180deg, var(--color-bone) 0%, oklch(0.92 0.01 80) 100%)',
+            color: 'var(--color-bg)',
+            cursor: 'pointer',
+            fontFamily: 'var(--font-sans), system-ui, sans-serif',
+            fontSize: 13.5,
+            fontWeight: 500,
+            letterSpacing: '-0.005em',
+            boxShadow:
+              '0 4px 12px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(255,255,255,0.2)',
+            border: 0,
+            whiteSpace: 'nowrap',
           }}
         >
-          {/* Nav icons — slide in/out via max-width. */}
-          <div
-            style={{
-              display: 'flex',
-              gap: 2,
-              overflow: 'hidden',
-              maxWidth: open ? 180 : 0,
-              opacity: open ? 1 : 0,
-              transition: 'max-width 0.32s var(--ease-strat), opacity 0.22s ease',
-            }}
-          >
-            <NavIcon kind="library" href="/" onNav={() => setOpen(false)} />
-            <NavIcon kind="map"     href="/map" onNav={() => setOpen(false)} />
-            <NavIcon kind="settings" href="/settings" onNav={() => setOpen(false)} />
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              if (!open) { setOpen(true); return }
-              router.push('/add')
-            }}
-            aria-label={open ? 'Keep a find' : 'Open dock'}
-            style={{
-              marginLeft: open ? 4 : 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 7,
-              padding: open ? '0 16px 0 12px' : 0,
-              width: open ? 'auto' : 40,
-              height: 40,
-              borderRadius: 4,
-              background:
-                'linear-gradient(180deg, var(--color-bone) 0%, oklch(0.92 0.01 80) 100%)',
-              color: 'var(--color-bg)',
-              cursor: 'pointer',
-              fontFamily: 'var(--font-sans), system-ui, sans-serif',
-              fontSize: 13.5,
-              fontWeight: 500,
-              letterSpacing: '-0.005em',
-              boxShadow:
-                '0 4px 12px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(255,255,255,0.2)',
-              transition: 'all 0.32s var(--ease-strat)',
-              justifyContent: 'center',
-              border: 0,
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
-              <path d="M7 2.5v9M2.5 7h9" stroke="var(--color-bg)" strokeWidth="1.6" strokeLinecap="round" />
-            </svg>
-            {open && (
-              <span
-                style={{
-                  animation: 'dock-label-in 0.22s ease-out both',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                Keep
-              </span>
-            )}
-          </button>
-        </div>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+            <path d="M7 2.5v9M2.5 7h9" stroke="var(--color-bg)" strokeWidth="1.6" strokeLinecap="round" />
+          </svg>
+          Find
+        </button>
       </div>
-
-      <style>{`
-        @keyframes dock-label-in {
-          from { opacity: 0; transform: translateX(-4px); }
-          to   { opacity: 1; transform: translateX(0); }
-        }
-      `}</style>
-    </>
+    </div>
   )
 }
 
 function NavIcon({
   kind,
   href,
-  onNav,
 }: {
   kind: 'library' | 'map' | 'settings'
   href: string
-  onNav: () => void
 }) {
   const c = 'rgba(244,243,239,0.82)'
   const icon =
@@ -188,9 +131,7 @@ function NavIcon({
         <circle cx="10" cy="8.3" r="1.6" stroke={c} strokeWidth="1.2" />
       </svg>
     ) : (
-      // Proper gear — eight teeth around a center circle (not a sunburst).
-      // The previous version was a circle with 8 radial lines; that reads
-      // as brightness, not as settings.
+      // Proper gear — eight teeth around a center circle.
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path
           d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"
@@ -205,7 +146,6 @@ function NavIcon({
   return (
     <Link
       href={href}
-      onClick={onNav}
       aria-label={kind}
       style={{
         width: 40,

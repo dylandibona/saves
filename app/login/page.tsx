@@ -14,23 +14,12 @@ export default function LoginPage({
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-5 py-10">
       <div className="w-full max-w-sm flex flex-col">
-        {/* Brand block — sigil + wordmark centered, with the italic-serif
-            tagline below in the same composition as a Find's title moment.
-            Sits above the auth options like a logo over a counter. */}
-        <div className="flex flex-col items-center text-center" style={{ gap: 14 }}>
-          <Sigil size={48} />
-          <h1
-            className="font-semibold-ui"
-            style={{
-              fontSize: 30,
-              color: 'var(--color-paper)',
-              fontWeight: 500,
-              letterSpacing: '-0.01em',
-              lineHeight: 1.0,
-            }}
-          >
-            Finds
-          </h1>
+        {/* Brand block — the mark stands alone, italic-serif tagline below.
+            "Finds" wordmark removed: the logomark is recognizable enough on
+            its own, and the dual mark+word felt redundant once both were
+            sized for visibility. */}
+        <div className="flex flex-col items-center text-center" style={{ gap: 18 }}>
+          <Sigil size={64} />
           <p
             style={{
               fontFamily: 'var(--font-sans), system-ui, sans-serif',

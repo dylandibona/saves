@@ -197,10 +197,13 @@ export function OptionsPopup({ saveId, saveTitle, canonicalUrl, categoryTone }: 
   }
 
   return (
+    // Floats above the global Dock (which sits at bottom 16 + 40 height = 56
+    // from screen bottom). 72px clears it with a comfortable gap.
     <div
-      className="absolute left-0 right-0 bottom-0"
+      className="fixed left-0 right-0"
       style={{
-        padding: '24px 14px 16px',
+        bottom: `calc(env(safe-area-inset-bottom, 0px) + 72px)`,
+        padding: '24px 14px 0',
         background: 'linear-gradient(180deg, transparent 0%, var(--color-bg) 40%)',
       }}
     >

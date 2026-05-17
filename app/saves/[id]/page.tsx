@@ -126,7 +126,10 @@ export default async function SaveDetailPage({
       }}
     >
       {/* Scrollable body. Generous bottom-pad to clear the floating footer. */}
-      <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 116px)' }}>
+      {/* Bottom-pad clears both the floating Open original/Options bar
+          (~bottom 72 + ~56 height = top at ~128) and the dock below it
+          (16-56 from bottom). 160px gives both a gap from content. */}
+      <div style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 160px)' }}>
         {/* ── Hero ────────────────────────────────────────────────────────── */}
         <div
           className="relative w-full overflow-hidden"
