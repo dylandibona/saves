@@ -11,33 +11,24 @@ Deep backlog of nice-to-haves lives in `CLAUDE.md` §7. Items only enter `PLAN.m
 
 ---
 
-## 0. Stratum v2 design rollout — `now` — XL
+## 0. Ship to Keelin — `now` — S
 
-**Why:** Claude Design delivered a full visual reset for Library, Capture, and Detail. The current orb-based jewel-tone theme is out; in: Instrument Sans / Instrument Serif Italic / Martian Mono, radial sapphire background, 4px max border radius, single-row drag-scroll category strip, closed-by-default floating dock, italic-serif title moment reserved for single-Find emphasis. Handoff in `_design input/design_handoff_finds_stratum_v2/`.
+**Why:** Everything needed to share Dylan's library with Keelin tonight is built, deployed, and type-checked. What's left is a pre-flight checklist Dylan can run on his phone, then minting the household link.
 
-**Scope (top to bottom of the suggested rollout):**
+**Scope:**
 
-1. Google fonts swap in `app/layout.tsx`. Drop the Pixelify Sans / VT323 / Silkscreen triplet. Drop the AnimatedWordmark component.
-2. New design tokens in `app/globals.css`. Remove orb keyframes; new radial sapphire wash. Replace `CATEGORY_COLORS` with the new oklch tones.
-3. New `Wordmark` sigil component (3 offset rounded rectangles + "Finds" sans).
-4. `feed-client.tsx` rebuild — count line, drag-scroll category strip, tighter cards.
-5. `save-card.tsx` rebuild — drop saver pill, fold identity into meta line.
-6. `nav.tsx` → new floating dock (closed +, opens to 3 icons, scroll-fades).
-7. `add-form.tsx` + `build-preview.tsx` rebuild — centered mono phase verb, italic-serif title swap on resolve, ENRICHED callout, category-tinted Keep button.
-8. `saves/[id]/page.tsx` rebuild — full-bleed hero, italic-serif title, Options popup with Delete moved inside, KEPT timestamp chip.
-9. Apply "in spirit" to surfaces NOT explicitly designed: settings, billing, login, map, join, share. Use the new tokens; don't reinvent layouts.
-10. Type-check + build before pushing.
+1. **Decide OAuth consent path.** Branding is already configured (App name "Finds", logo, support email) in Cloud Console project `saves-495818` / number `435455306082`. But External-audience apps require Google verification before branding displays — Testing publishing status does NOT bypass this (verified 2026-05-17). Three options: (A) provision Keelin a `@dylandibona.com` Workspace account, flip OAuth audience to Internal — branding shows immediately, only Workspace members can sign in. (B) Ship as-is; Keelin sees Supabase URL on first consent, Google caches it, never sees it again. (C) Submit for verification — 4-6 wk review, defer until public launch. **Recommended: B for tonight, revisit A if Keelin wants the polished UX.**
+2. **Add `GOOGLE_PLACES_API_KEY` to Vercel** (Production + Preview). Currently `.env.local` only; Maps lookups silently fall back without it.
+3. **Pre-flight test on Dylan's phone:**
+   - Sign in fresh (Incognito if needed) — accept that consent screen still shows Supabase URL unless path A or C chosen
+   - Capture an Instagram reel, a YouTube video, a Google Maps place, a recipe article — confirm hero images persist and categories are correct
+   - Refresh a broken/old save via the new Options → Refresh action
+   - Rename Family household in Settings — confirm it persists (RLS bug fix verified)
+   - Mint a household invite link in Settings → InvitesSection
+4. **Flip `BILLING_ENFORCED=true`** in Vercel env (Production + Preview).
+5. **Send Keelin the household link.** She clicks → sees "Dylan is sharing their library with you." → signs in with Google → lands in Family.
 
-**Out of scope this pass** (per handoff §6): Map view design, Settings hi-fi, Tonight, Trip, Cellar, Onboarding/Login hi-fi, Recategorize picker, Edit flow. These get separate design passes later.
-
-**Done when:**
-- Every screen reads in the same visual language. No more orbs or pixel-font wordmark.
-- Library cards present a meta line with category·time·initials (no saver pills).
-- Capture flows from mono phase verb → italic serif title → ENRICHED callout → Keep button.
-- Detail page reads like an article, not chrome.
-- Type-check passes; build passes; new design works on mobile (375px) and desktop (≥1024px).
-
-**Risks:** large surface area; multiple components touched simultaneously. Mitigation: rollout in the order above and type-check between steps so we're never on a broken main for long.
+**Done when:** Keelin can see and add to the shared library on her own phone.
 
 ---
 
@@ -190,7 +181,9 @@ See `CLAUDE.md` §7 for the full list of nice-to-haves that aren't priority enou
 
 Items that shipped. Newest first.
 
-- **2026-05-17 — Capture coverage + invite/household + trial warnings + household naming + Phase 2 polish.** YouTube/TikTok/Spotify/Apple/Letterboxd/Goodreads media-type branches in enrichment. `invite_codes` table with two kinds (`app` for strangers grants 90-day Personal trial + stamps `users.acquired_via_code` cohort; `household` joins inviter's household — link is sufficient credential). `/settings` InvitesSection + TestersSection (color-coded urgency). `/join/[code]` landing. `/billing` hidden for members + trial countdown banner. `handle_new_user` trigger renames household defaults to `"{Name}'s finds"`; Dylan's renamed to "Family". `HouseholdSection` rename UI (owner-only). `saves.enrichment_errors` jsonb for triage. 20s Anthropic timeout. Five migrations: 20260517000001..05. See `docs/session-notes-2026-05-17.md`.
+- **2026-05-17 (late — phone-testing polish + OAuth branding)** — Pricing model: Household plan flat $8/mo for up to 4 (was `household_member` $2/seat). Family rename RLS bug fix (migration 7 — self-referential typo in households UPDATE policy). Defensive `.select()` in renameHousehold Server Action. Capture Keep button gated on `buildState.status === 'complete'`. iOS focus-zoom fix (universal `font-size: 16px` on coarse pointers). Real Finds logo swapped in everywhere (PWA icons rebuilt). Login redesign: Google primary, OR divider, magic-link secondary, beta-code disclosure. "Finds" text stripped everywhere the logo appears (sigil-only). Dock always-open with three nav + "+ Find" cream pill. Detail action bar switched from sticky to fixed (viewport-docked). Library splash defaults to visible=true (no flash). Google OAuth consent screen branding walkthrough delivered (Dylan-side).
+- **2026-05-17 (mid — Stratum v2 visual reset)** — Full design system replacement. Out: orbs, Geist/Fraunces/Space Mono, pixel-font wordmark, animated gradients. In: radial sapphire wash + Instrument Sans/Instrument Serif Italic/Martian Mono + 4px-max border-radius + ease-out-expo (no springs, no glow). New `Sigil` component from real `public/logo.black.svg` paths. Library/Capture/Detail rebuilt to Claude Design spec — drag-scroll category strip, count-line hero, italic-serif title moments. Re-enrich action + persistent hero images via Supabase Storage `hero-images/{id}.webp` (sharp resize); HTML entity decoder cleans old saves. Migration 6 adds the column + bucket. App-wide single-row top-right-title header pattern applied to Map/Add/Settings/Billing/Detail. New SubscriptionSection in `/settings`. Map rewrite.
+- **2026-05-17 (early — capture coverage + invites + household + Phase 2 polish)** — YouTube/TikTok/Spotify/Apple/Letterboxd/Goodreads media-type branches in enrichment. `invite_codes` table with two kinds (`app` for strangers grants 90-day Personal trial + stamps `users.acquired_via_code` cohort; `household` joins inviter's household — link is sufficient credential). `/settings` InvitesSection + TestersSection (color-coded urgency). `/join/[code]` landing. `/billing` hidden for members + trial countdown banner. `handle_new_user` trigger renames household defaults to `"{Name}'s finds"`; Dylan's renamed to "Family". `HouseholdSection` rename UI (owner-only). `saves.enrichment_errors` jsonb for triage. 20s Anthropic timeout. Migrations: 20260517000001..05. See `docs/session-notes-2026-05-17.md`.
 - **Live capture-build animation (first pass)** — `/api/enrich-stream` SSE endpoint with phased events. `BuildPreview` component materializes the save card live as enrichment streams in. Hero image fade + scale, category chip bloom, staggered list-item reveals for structured fields. Pacing tunable. Enrichment internals extracted from Server Action into `lib/enrichment/enrich.ts` so the route can call them in phases.
 - **Stripe gate architecture (open lock)** — Migration `20260511000001_stripe_billing`. `users.stripe_customer_id` + `subscription_status` + `subscription_plan` + `subscription_current_period_end` columns. `stripe_events` table with event-id PK for idempotent webhooks. `lib/billing/stripe.ts` client (server-only), `lib/billing/can-save.ts` helper that returns `{ok:true}` while `BILLING_ENFORCED !== 'true'`. `/api/stripe-webhook` with signature verification + idempotent processing of `checkout.session.completed` / `customer.subscription.{created,updated,deleted}` / `invoice.payment_failed`. `/api/checkout` initiates Checkout sessions with auto-customer-creation. `/billing` page (URL-only, no nav link) surfaces current plan + tier comparison + gate-open notice. `userCanSave` is the single gate hook called from `addSave` and `/api/share-save`.
 - **Save visibility (Shared / Just me)** — Migration `20260510000001_save_visibility`. Per-save visibility with RLS-enforced privacy. Schema, UI toggle, lock icon, detail page treatment all live.

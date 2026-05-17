@@ -6,50 +6,78 @@ Session-by-session record. Short, honest, useful for the next session (mine or D
 
 ---
 
-## 2026-05-17 — Capture coverage, invite/household system, household naming, deploy punchlist
+## 2026-05-17 — Capture coverage + invite/household + Stratum v2 + phone-test polish + OAuth branding
 
-Branch `claude/bold-swanson-70e9ca`, two commits (`a4a00cb` + `9b76018`). Five migrations applied to production DB.
+Single very long day. 17 commits, 7 migrations, full visual reset. All on `origin/main`, HEAD `7eed97d`. Comprehensive write-up in `docs/session-notes-2026-05-17.md`; this is the dev-log summary.
 
-**What shipped:**
+**Phase A — morning** (`a4a00cb`, `9b76018`)
+- Capture coverage: YouTube/TikTok/Spotify/Apple Music/Apple Podcasts/Letterboxd/Goodreads enrichment branches. `ClassifyHint` union extended. Hardcoded `'noted'` for YouTube killed. Twitter/X intentionally skipped.
+- Invite system: 3 migrations + 4 RPCs. Two kinds (`app` for stranger 90-day comp trial, `household` for partner-share). UI in `/settings` (InvitesSection + TestersSection) + `/join/[code]` landing + `/login` invite threading + `/auth/callback` redemption + members-only `/billing` tile.
+- Household naming: `handle_new_user` trigger renames defaults to `"{Display}'s finds"`. Owner-only rename UI.
+- Phase 2 polish: `saves.enrichment_errors jsonb` triage. 20s Anthropic timeout.
+- Dylan upgraded to comp Personal trial expiring 2027-05-17. Safe to flip `BILLING_ENFORCED=true`.
 
-*Capture-pipeline coverage.* Six new media types route through dedicated enrichment branches in `lib/enrichment/enrich.ts` and `app/api/enrich-stream/route.ts`: YouTube (oEmbed + Claude with `'video'` hint — kills hardcoded `'noted'`), TikTok (oEmbed + Slackbot UA + `@handle` subtitle), Spotify (oEmbed + path-kind extraction → music vs podcast), Apple Music, Apple Podcasts, Letterboxd, Goodreads. `ClassifyHint` extended from `'place' | null` to `'place' | 'video' | 'music' | 'podcast' | 'movie' | 'book' | null`. New helpers: `fetchOEmbed`, `extractYouTubeId`, `extractSpotifyKind`, `extractTikTokUsername`.
+**Phase B — midday — Stratum v2 visual reset** (`5ec0774`, `f844831`, `35afae0`, `15ba4e9`, `c83ca06`)
+- Full design system replacement. Out: orbs, Geist/Fraunces/Space Mono, Pixel-font wordmark, 5 animated gradients. In: radial sapphire wash + Instrument Sans / Instrument Serif Italic / Martian Mono + 4px-max border-radius + ease-out-expo motion (no springs, no glow).
+- Library/Capture/Detail rebuilt to Claude Design's spec. Drag-scroll category strip, count-line hero, italic-serif title moment reserved for single-Find emphasis.
+- New `Sigil` component built from real `public/logo.black.svg` paths.
+- Re-enrich + persistent hero images: `decodeHtmlEntities()` cleans old saves; sharp resize → Supabase Storage `hero-images/{id}.webp`. Detail prefers Storage URL, falls back to source. Migration 6 adds the column + bucket.
+- Drop 2: app-wide single-row top-right-title header pattern. Settings reorganized — Subscription section first. Map rewrite.
 
-*Invite + household system.* Three migrations: `20260517000001_invite_codes` (table + 4 RPCs), `20260517000002_acquired_via_code` (column + updated redeem function — stamps tester cohort), `20260517000003_list_acquired_users` (admin RPC with warning_level enum). Two invite kinds in one table: `app` (stranger gate, grants 90-day comp Personal trial) and `household` (joins inviter's household as member, link is sufficient credential). Full UI: `InvitesSection` (mint/copy/revoke) and `TestersSection` (color-coded urgency: ok / soon / urgent / expired) in `/settings`, `/join/[code]` landing page, `/login` accepts pasted code or URL-threaded `?invite=`, `/auth/callback` redeems on session exchange. `/billing` for members shows "Handled by {owner}." tile only.
+**Phase C — afternoon/evening — phone-test polish** (`dfe54a1` → `7eed97d`)
+- Pricing: Household plan renamed (`household_member` → `household`), flat $8/mo for up to 4 (was $2/mo per seat).
+- Family rename RLS bug: migration 7 fixes self-referential typo in households UPDATE policy (`household_members.household_id = household_members.id` → `... = households.id`). Defensive `.select()` in `renameHousehold` Server Action surfaces 0-rows-updated.
+- Capture race fixed — Keep button now gated on `buildState.status === 'complete' || 'error'`.
+- iOS focus-zoom fix — `font-size: 16px !important` on all inputs at coarse pointers.
+- Real Finds logo swapped in everywhere. PWA icons rebuilt.
+- Login redesign — Google primary, OR divider, magic-link secondary, "New to Finds? Either path creates your account." beta-code disclosure.
+- "Finds" text stripped everywhere logo appears (sigil-only). I missed two surfaces (Wordmark component, map header) on first pass — Dylan caught them.
+- Always-open dock: closed-by-default hurt discoverability. Three nav icons + "+ Find" cream pill always visible. Hidden on auth/add/saves paths.
+- Detail action bar: misread Dylan's "detail page nav visible" as "show the dock there" — he meant the existing Open original / Options bar should be viewport-docked. Reverted dock, switched bar from `position: sticky` to `position: fixed`.
+- Library first-load splash: initial bug flashed Library → splash → Library. Fix: default `visible=true` so splash paints from SSR.
 
-*Trial warnings both directions.* `/billing` shows a countdown banner for `trialing` users — ruby ≤7 days, amber ≤21, teal otherwise. `/settings` TestersSection lists redeemed app codes joined with redeemer state, sorted closest-to-expiry, color-coded badges. Conversion-moment-approaching tile fires when any tester crosses into soon/urgent.
-
-*Household naming.* Migration 4 — `handle_new_user` trigger now creates households named `"{Display}'s finds"` instead of the raw email; backfill renamed existing email-named households. Dylan's household renamed to "Family" via direct SQL. `HouseholdSection` rename UI in `/settings` is owner-only.
-
-*Phase 2 polish.* Migration 5 — `saves.enrichment_errors jsonb` for post-hoc capture-failure triage. `share-save` (iOS Shortcut path) writes derived errors when fallback signals fire. 20s hard timeout on the Anthropic classify call. Phase 2.1 (incremental JSON streaming) deferred — complex parser, modest user-visible win, would land in a dedicated session.
-
-*Account upgrades.* Dylan's user row: `subscription_plan='personal'`, `status='trialing'`, period_end 2027-05-17, `display_name='Dylan'`. Safe to flip `BILLING_ENFORCED=true` without locking him out.
+**OAuth branding (Dylan-side, no commit)**
+- Cloud Console → Branding → App name "Finds", logo upload, both Authorized domains (`lqmjglpzrfcpnpshbjwo.supabase.co` AND `dylandibona.com`) kept, contact email set.
+- Initial advice that Testing publishing status bypasses verification for branding display was **wrong**. Live test in Incognito after switching to Testing still showed the Supabase URL. The "Verification status" panel in the Branding UI is literal: External-audience apps need verification before branding (App name OR logo) displays.
+- Confirmed via Client ID prefix match (`435455306082-...`) that the Finds Cloud project owns the OAuth client — wrong-project theory ruled out.
+- Three real resolution paths: (A) Internal audience via Workspace — requires Keelin gets a `@dylandibona.com` account; branding shows immediately. (B) Accept Supabase URL during beta — first-time consent only, Google caches it. (C) Submit for verification — 4-6 wk, defer until public launch. **Recommendation: B for tonight.**
 
 **What's stuck / pending:**
-- Branch needs `git push origin claude/bold-swanson-70e9ca` (or merge to main) to trigger Vercel deploy.
-- `BILLING_ENFORCED=true` env flip in Vercel waiting until after deploy so users have access to invite UI before the gate activates.
-- PWA Share Target on iOS still untested. ~30 min of Dylan's phone time.
+- `BILLING_ENFORCED=true` env flip in Vercel (Production + Preview) — deferred until Dylan finishes pre-flight testing.
+- `GOOGLE_PLACES_API_KEY` still only in `.env.local`, not Vercel. Maps lookups silently fall back without it.
+- PWA Share Target on iOS still untested — ~30 min of Dylan's phone time.
 - Apify Instagram — cost decision still pending.
-- Stripe coupons mechanism for tester-conversion discounts — deferred until Stripe is configured for live payments.
-
-**What's next:**
-- Design redesign: Stratum v2 from Claude Design in `_design input/design_handoff_finds_stratum_v2/`. Full visual reset — replaces orbs+jewel-tone+Geist/Fraunces/Space Mono with radial sapphire wash + Instrument Sans/Instrument Serif Italic/Martian Mono + 4px-max border radius + new dock + new card layout. Three screens designed (Library, Capture, Detail); rest applied "in spirit." Implementation plan to follow.
+- Stripe live config (products + price IDs + webhook secret) — deferred until first tester wants to convert.
+- HaveIBeenPwned leaked-password check — 30-second Supabase Auth toggle.
+- Restrict Google Maps + Places keys in Cloud Console — 10 min.
 
 **Decisions made this session:**
-- Household-invite links bypass the beta app-code gate. The link IS the credential.
-- App-code redemption stamps `users.acquired_via_code` for cohort tracking. 90-day Personal trial. No discount layer until Stripe is live; we'll re-issue the cohort fresh codes when paid plans activate.
-- Members never see `/billing`. Just a "Handled by {owner}." tile. Cleanest mental model.
-- 90-day trial chosen over lifetime-free for testers. Lets us learn who actually uses the product.
-- Twitter/X enrichment branch skipped — low scraping success rate, would ship a hollow branch.
+- Household-invite links bypass beta app-code gate. The link IS the credential.
+- 90-day Personal trial for app-code redeemers; tester cohort stamped via `users.acquired_via_code`.
+- Members see no `/billing`, just "Handled by {owner}." tile.
+- 90-day trial > lifetime-free — lets us learn who actually uses it.
+- Twitter/X enrichment skipped — low ROI on scraping.
+- Household plan flat $8/mo for up to 4 (not $2/mo/seat) — simpler mental model.
+- Dock always-open with "+ Find" cream pill — discoverability > minimalism.
+- Drop the word "Finds" anywhere the logo appears — logo is sufficient.
+- OAuth verification deferred until public launch.
 - Phase 2.1 (Anthropic streaming) deferred — high complexity, modest UX win.
 
-**Open questions for Dylan:**
-- Push the branch yourself, or do you want me to push it on your authorization?
-- When you flip `BILLING_ENFORCED=true`, please do it for both Production AND Preview so previews behave the same.
-- Naming check: are we calling it "My Family" or just "Family" in copy? Visibility tabs in the new design say "MY FAMILY"; current code says "Shared" → maps to `visibility: 'household'`. Lining the labels up needs a tiny copy decision.
-
 **Architectural learnings:**
-- Worktree gotcha: when operating in a worktree, `Write`/`Edit` calls using absolute paths to the main repo root will land in main, not the worktree. The session-init system message gives the worktree path explicitly — that's the destination for every Write/Edit. Mid-session a batch of writes landed in main and had to be moved. Recovery worked but cost a checkpoint.
-- Supabase Data API GRANT policy reminder: new `public.*` tables created after Oct 30, 2026 need explicit `GRANT` statements. `invite_codes` includes the grants defensively even though we're pre-cutoff.
+- **Worktree gotcha** — Mid-Phase-A a batch of `Write`s used absolute paths to the main repo root instead of the worktree. Recovery via `git restore` worked but cost a checkpoint. Lesson: the session-init system message explicitly gives the worktree path; that's the destination for every Write/Edit.
+- **RLS UPDATE can succeed with 0 rows** — the Family rename bug looked like the action failing, but the UPDATE statement ran fine — it just matched zero rows because the policy `USING` clause had a typo. Lesson: when a Server Action calling UPDATE/DELETE needs to confirm it actually changed something, chain `.select()` so we surface 0-rows as an explicit error.
+- **iOS Safari auto-zoom on `<input>` font-size <16px** — affects any form, not just the auth surfaces. Universal `@media (pointer: coarse)` rule is the fix.
+- **`position: sticky` is page-scoped, `position: fixed` is viewport-scoped** — if you want something pinned regardless of scroll, use fixed.
+- **CSS preflight order matters in Tailwind v4** — setting `font-family` on `html` was overridden by Tailwind's preflight. Setting it on `html, body` works.
+- **Grep across the codebase when stripping a term** — Dylan caught me twice missing "Finds" in surfaces I hadn't expected (Wordmark component, map glass header).
+- **Default useState to the visible state, not the hidden state, when rendering from SSR** — splash-page flash was caused by `useState(false)` flipping to `true` in `useEffect`, which happens after first paint. `useState(true)` is the right default for "show by default, dismiss in effect".
+- **Google OAuth verification gate is real for External-audience apps** — Testing publishing status only carves out *user access* (no need to publish to use), not branding display. As long as audience type is External and branding has been edited, App name + logo are gated behind verification. Trust the "Verification status" panel in the Cloud Console Branding UI when it says branding won't show — it's not a warning, it's a literal description of what will happen. The carve-out exists only for Internal-audience apps under a Workspace org.
+- **The OAuth Client ID prefix is the project number** — `XXXXXXXXXXXX-xxx.apps.googleusercontent.com`. Quickest way to verify "is this OAuth client in the project I think it's in?" — compare the prefix against the project number on the Cloud Console dashboard. No need to enumerate Credentials across projects.
+
+**Open questions for Dylan:**
+- Walk through the pre-flight test sequence on your phone, then mint Keelin's household link.
+- After Keelin tests, flip `BILLING_ENFORCED=true` in Vercel (Production + Preview).
+- Place `GOOGLE_PLACES_API_KEY` in Vercel when convenient — unblocks full Maps enrichment in production.
 
 ---
 
@@ -82,7 +110,7 @@ Branch `claude/bold-swanson-70e9ca`, two commits (`a4a00cb` + `9b76018`). Five m
 
 **Open questions for Dylan:**
 - Try the new build animation on a real save. Tell me what feels off — pacing too fast, too slow? Animation easings? Sound? The structured-field reveal rhythm (currently 70ms between items)?
-- For 3b (PWA Share Target), do you have a moment to test on your phone? Open `https://saves.dylandibona.com` in Safari → Add to Home Screen → share an Instagram post → see if Finds appears in the share sheet. Tell me what you observe.
+- For 3b (PWA Share Target), do you have a moment to test on your phone? Open `https://finds.dylandibona.com` in Safari → Add to Home Screen → share an Instagram post → see if Finds appears in the share sheet. Tell me what you observe.
 
 **Decisions made this session:**
 - One Claude call + choreographed reveals (Path 3 from architecture discussion) rather than multiple smaller calls or streaming JSON parsing. Faster to ship, ~80% as magical. v2 can stream Claude's response if signal warrants.
@@ -132,7 +160,7 @@ Branch `claude/bold-swanson-70e9ca`, two commits (`a4a00cb` + `9b76018`). Five m
   5. For Household Member: add a $2/mo recurring price + a $24/yr recurring price
   6. Copy the monthly price IDs (start with `price_`) into Vercel env vars: `STRIPE_PRICE_ID_PERSONAL`, `STRIPE_PRICE_ID_HOUSEHOLD_MEMBER`
   7. Settings → API keys → copy publishable + secret keys into Vercel env vars: `STRIPE_SECRET_KEY`
-  8. Developers → Webhooks → Add endpoint → URL `https://saves.dylandibona.com/api/stripe-webhook` → events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed` → copy signing secret to Vercel env var `STRIPE_WEBHOOK_SECRET`
+  8. Developers → Webhooks → Add endpoint → URL `https://finds.dylandibona.com/api/stripe-webhook` → events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed` → copy signing secret to Vercel env var `STRIPE_WEBHOOK_SECRET`
 - None of the above blocks current functionality (gate is open).
 
 **What's next (top of `PLAN.md`):**

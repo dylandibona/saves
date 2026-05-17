@@ -26,12 +26,12 @@ Guidance for Claude Code when working in this repository. **Keep this file curre
 
 | Surface | Where | Notes |
 |---|---|---|
-| App | `https://saves.dylandibona.com` | Cloudflare DNS → Vercel |
+| App | `https://finds.dylandibona.com` | Cloudflare DNS → Vercel. **This is the live production URL.** Do NOT reference the retired `saves.dylandibona.com`. |
 | Repo | `https://github.com/dylandibona/saves` | dylandibona personal account; commits authored as `Dylan DiBona <dylan@dylandibona.com>` |
 | Vercel project | Personal "dbone" account, project name `saves` | Hobby tier, "Dylan's projects" team |
 | Supabase project | ref `lqmjglpzrfcpnpshbjwo` | Account: dylandibona (NOT Natrx) |
-| Google OAuth | Cloud Console project (legacy name "Saves") | Authorized origins: `saves.dylandibona.com` (will need `finds.dylandibona.com` once domain swaps). Authorized redirect URI: `https://lqmjglpzrfcpnpshbjwo.supabase.co/auth/v1/callback` |
-| Google Maps API | Cloud Console project (legacy name "Saves") | Maps JavaScript API enabled. Currently unrestricted — needs HTTP referrer restriction. |
+| Google OAuth | Cloud Console project **Finds** (project ID `saves-495818`, project number `435455306082`) | Single Google Cloud project owns BOTH the OAuth Client ID Supabase uses AND the Branding config. Confirmed via Client ID prefix match 2026-05-17. Authorized origins: `finds.dylandibona.com`. Authorized redirect URI: `https://lqmjglpzrfcpnpshbjwo.supabase.co/auth/v1/callback`. Both `lqmjglpzrfcpnpshbjwo.supabase.co` and `dylandibona.com` must remain in Authorized domains on the OAuth consent screen. **Branding (App name "Finds" + logo + support email) is configured but does NOT display to users** — External-audience apps require Google verification before branding shows. Testing publishing status does NOT bypass this (verified 2026-05-17). Current beta behavior: consent screen shows the Supabase URL (`lqmjglpzrfcpnpshbjwo.supabase.co`) as the destination. See §6 + session notes for the three resolution paths. |
+| Google Maps API | Cloud Console project (legacy name "Saves") | Maps JavaScript API enabled. Currently unrestricted — should restrict to `finds.dylandibona.com/*` (backlog). |
 
 ---
 
@@ -48,7 +48,7 @@ Guidance for Claude Code when working in this repository. **Keep this file curre
 | Auth | Supabase Auth | Magic link + Google OAuth. Apple SIWA was removed — too much config friction (domain verification file, JWT generation, Services ID maintenance). |
 | Map | Google Maps JS API via `@react-google-maps/api` | Custom dark style. Needs `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` |
 | AI | Anthropic claude-opus-4-5 | Server-side only, lazy import; graceful fallback if no key |
-| Hosting | Vercel | Production: `https://saves.dylandibona.com` |
+| Hosting | Vercel | Production: `https://finds.dylandibona.com` |
 | Image generation | sharp | DevDep only; `npm run icons` regenerates PWA icons from SVG |
 
 ### Why no middleware
@@ -106,7 +106,7 @@ End-to-end tested in production by Dylan unless noted otherwise:
 | **PWA Share Target** | Code is in place (`public/manifest.json` + `app/share/route.ts`) but never validated end-to-end on a real device. | Primary path forward for "share from Instagram" UX — needs installation + test. |
 | **Existing pre-extraction finds** | Finds created before the extraction feature have empty `canonical_data.extracted`. No backfill or re-process action exists. | First few finds Dylan made look threadbare on the detail page. Workaround: delete + re-share. |
 | **Keelin onboarding** | Path is now self-serve: Dylan mints a household link in `/settings`, sends to Keelin, she clicks → signs up → lands in his "Family" household. Manual SQL no longer required. Pre-Stratum-v2 design system, but functional. | Just needs the branch deployed + Dylan to mint the link. |
-| **Google Maps API key** | Currently unrestricted. Anyone can use it from any domain by reading the bundle. | Security/billing risk — should restrict to `saves.dylandibona.com/*` (and `localhost:3000/*` for dev). |
+| **Google Maps API key** | Currently unrestricted. Anyone can use it from any domain by reading the bundle. | Security/billing risk — should restrict to `finds.dylandibona.com/*` (and `localhost:3000/*` for dev). |
 | **Hardcoded user mappings** | `lib/utils/identity.ts` has explicit `dylan→DD, keelin→KL` matched by email substring. | Fine for two known users; doesn't scale to public sign-ups. Need real user `display_name` field used + fallback initials computed from name parts. |
 | **No edit save UI** | Once saved, can't edit title/category/note/visibility from the UI. Must delete + re-add. | Mid-priority polish gap. |
 | **No Keelin invite flow** | ✅ Resolved 2026-05-17. `invite_codes` table + `/join/[code]` page + `InvitesSection` in `/settings`. Owner mints a household link, recipient clicks it, signs up, lands inside the household. Migration `20260517000001_invite_codes`. |
@@ -124,6 +124,7 @@ End-to-end tested in production by Dylan unless noted otherwise:
 | Existing saves missing extraction | No backfill. Re-share to enrich. |
 | Map shows nothing for non-place saves | Expected — map only renders saves with `canonical_data.coords`. Empty state shown when zero. |
 | Instagram captions often missing | Instagram blocks scrapers heavily. We get OG title/image/description sometimes; captions rarely. Real fix: Apify or headless browser. |
+| **Google OAuth consent screen shows Supabase URL, not "Finds"** | Branding is configured correctly in the Finds Cloud Console project (App name, logo, support email all set). But Google requires verification for External-audience apps before any branding displays — Testing publishing status does NOT bypass this gate (verified 2026-05-17 against the live UI). Three resolution paths: **(a)** Provision Keelin a `@dylandibona.com` Workspace account and switch OAuth audience to Internal — branding shows immediately, no verification ever required, but only Workspace org members can sign in. **(b)** Ship as-is during beta — users see the Supabase URL on first sign-in, click their account, get in; Google caches the consent so they don't see the screen again. **(c)** Submit for verification — 4-6 wks, requires real Privacy Policy URL + ToS URL + screen-recording demo of the OAuth flow + scope justification. Defer (c) until public launch. |
 
 ---
 
@@ -136,7 +137,7 @@ End-to-end tested in production by Dylan unless noted otherwise:
 | Reprocess action for existing saves | Low | Endpoint that re-runs `enrichUrl()` on a save and updates fields. Useful for backfill + manual "refresh" UX. |
 | Edit save UI | Medium | Per-field editing on detail page — title, category, note, visibility. |
 | Keelin sign-up + add to Dylan's household | One-time SQL | Keelin signs up, then run `UPDATE household_members SET household_id = '<dylans>' WHERE user_id = '<keelins>'` and delete her solo household. |
-| Restrict Google Maps API key | Low (Cloud Console) | Add HTTP referrer restriction to `saves.dylandibona.com/*`. |
+| Restrict Google Maps API key | Low (Cloud Console) | Add HTTP referrer restriction to `finds.dylandibona.com/*`. |
 | Recipe-specific JSON-LD parser | Medium | Many recipe sites have schema.org Recipe markup. Already passing JSON-LD to Claude; could parse explicitly for higher reliability and zero AI cost. |
 | Better Instagram extraction | High (Apify or Browserless) | Real captions, comments, full data. Costs money. Necessary for "the workout in the comments" use case. |
 | External recommender attribution UI | Medium | Choose recommender at save time; show their name + color in feed. |
@@ -244,7 +245,7 @@ supabase gen types typescript --linked > lib/types/supabase.ts
 app/
   layout.tsx               — Fonts (Geist, Fraunces, Space Mono, VT323, Pixelify Sans, Silkscreen),
                              gradient orbs (5 animated jewel-tone), grain overlay, manifest, icons,
-                             metadataBase=https://saves.dylandibona.com
+                             metadataBase=https://finds.dylandibona.com
   globals.css              — Tailwind v4 @import, :root oklch sapphire palette, orb keyframes,
                              .chip / .chip-off physical chip system
   template.tsx             — Framer Motion page transition (opacity + y, 0.22s easeOut)
