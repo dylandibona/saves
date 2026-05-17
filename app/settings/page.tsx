@@ -181,7 +181,7 @@ export default async function SettingsPage() {
           <header className="space-y-1.5">
             <p className="font-mono text-[10px] tracking-widest text-white/30">iOS Shortcut</p>
             <p className="text-[13px] text-white/55 leading-relaxed max-w-prose">
-              Send a find from any app — Instagram, Safari, Mail — without leaving it.
+              Save a Find from any app — Instagram, Safari, Mail — without leaving it.
               The Shortcut posts the URL to Finds in the background and shows
               a brief confirmation notification.
             </p>

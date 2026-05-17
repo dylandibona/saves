@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { FeedClient } from '@/components/feed/feed-client'
+import { LibrarySplash } from '@/components/feed/library-splash'
 import { getHouseholdId } from '@/lib/data/household'
 import { getFeedSaves } from '@/lib/data/saves'
 
@@ -22,14 +23,17 @@ export default async function FeedPage({
   const saves = await getFeedSaves(householdId)
 
   return (
-    <main
-      className="mx-auto"
-      style={{
-        maxWidth: 640,
-        paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
-      }}
-    >
-      <FeedClient saves={saves} initialCategory={category} />
-    </main>
+    <>
+      <LibrarySplash />
+      <main
+        className="mx-auto"
+        style={{
+          maxWidth: 640,
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)',
+        }}
+      >
+        <FeedClient saves={saves} initialCategory={category} />
+      </main>
+    </>
   )
 }

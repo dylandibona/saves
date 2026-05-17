@@ -21,6 +21,7 @@ export function LoginForm({
   // already carries an invite (from a household /join/<code> redirect), we
   // use that and don't show the field.
   const [code, setCode] = useState('')
+  const [showCode, setShowCode] = useState(false)
   const inviteFromUrl = params.invite?.trim().toUpperCase() || null
   const effectiveInvite = inviteFromUrl ?? (code.trim().toUpperCase() || null)
 
@@ -33,12 +34,15 @@ export function LoginForm({
     return u.toString()
   })()
 
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+
   async function handleMagicLink(e: React.FormEvent) {
     e.preventDefault()
+    if (!emailValid || loading) return
     setLoading(true)
     const supabase = createClient()
     await supabase.auth.signInWithOtp({
-      email,
+      email: email.trim(),
       options: { emailRedirectTo: callbackUrl },
     })
     setSent(true)
@@ -53,16 +57,54 @@ export function LoginForm({
     })
   }
 
+  // Magic-link confirmation screen — replaces the form once the email
+  // has gone out so the user has a single, clear next action.
   if (sent) {
     return (
-      <div className="space-y-3">
-        <p className="text-[15px] text-white/85 leading-relaxed">
+      <div
+        className="rounded-[4px] px-4 py-4"
+        style={{
+          background: 'var(--color-surface)',
+          border: '0.5px solid var(--color-hairline)',
+        }}
+      >
+        <p
+          className="font-mono"
+          style={{
+            fontSize: 9,
+            letterSpacing: '0.16em',
+            textTransform: 'uppercase',
+            color: 'var(--color-mute)',
+          }}
+        >
+          Sent
+        </p>
+        <p
+          style={{
+            marginTop: 6,
+            fontSize: 15,
+            color: 'var(--color-paper)',
+            lineHeight: 1.5,
+            letterSpacing: '-0.005em',
+          }}
+        >
           Check your email. We sent a sign-in link to{' '}
-          <strong className="text-white">{email}</strong>.
+          <strong style={{ fontWeight: 500 }}>{email.trim()}</strong>.
         </p>
         <button
           onClick={() => setSent(false)}
-          className="text-[13px] text-white/45 hover:text-white/75 transition-colors underline underline-offset-4 decoration-white/20"
+          className="font-mono"
+          style={{
+            marginTop: 12,
+            background: 'transparent',
+            border: 0,
+            padding: 0,
+            color: 'var(--color-mute)',
+            fontSize: 10,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            cursor: 'pointer',
+          }}
         >
           Use a different email
         </button>
@@ -71,16 +113,16 @@ export function LoginForm({
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {params.error && (
         <div
-          className="rounded-xl px-4 py-3"
+          className="rounded-[4px] px-4 py-3"
           style={{
             background: 'rgba(244,63,94,0.08)',
-            border: '1px solid rgba(244,63,94,0.22)',
+            border: '0.5px solid rgba(244,63,94,0.32)',
           }}
         >
-          <p className="text-[13px] text-rose-300/90">
+          <p style={{ fontSize: 13, color: '#fb7185', lineHeight: 1.5 }}>
             {params.error === 'invite_invalid'
               ? 'That invite is not valid or has been used. Sign in to continue with a fresh code.'
               : 'Sign-in didn’t take. Try again.'}
@@ -90,101 +132,162 @@ export function LoginForm({
 
       {inviteFromUrl && (
         <div
-          className="rounded-xl px-4 py-3"
+          className="rounded-[4px] px-4 py-3"
           style={{
-            background: 'rgba(0,229,160,0.06)',
-            border: '1px solid rgba(0,229,160,0.20)',
+            background: 'color-mix(in oklab, var(--color-cat-place) 8%, transparent)',
+            border: '0.5px solid color-mix(in oklab, var(--color-cat-place) 32%, transparent)',
           }}
         >
-          <p className="font-mono text-[10px] uppercase tracking-widest text-[#00e5a0] mb-1">
+          <p
+            className="font-mono"
+            style={{
+              fontSize: 9,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: 'var(--color-cat-place)',
+              marginBottom: 4,
+            }}
+          >
             Invite ready
           </p>
-          <p className="text-[13px] text-white/75 leading-relaxed">
+          <p style={{ fontSize: 13, color: 'var(--color-paper)', lineHeight: 1.5 }}>
             Sign in and we&rsquo;ll apply your invite.
           </p>
         </div>
       )}
 
-      <button
-        type="button"
-        onClick={handleGoogle}
-        className="w-full h-12 rounded-xl text-[14px] font-medium text-white/95 transition-all duration-150 inline-flex items-center justify-center gap-2 hover:bg-white/[0.04]"
-        style={{
-          background: 'rgba(255,255,255,0.02)',
-          border: '1px solid rgba(255,255,255,0.12)',
-        }}
-      >
-        <GoogleGlyph />
-        Continue with Google
-      </button>
-
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-px bg-white/[0.08]" />
-        <span className="text-[11px] font-mono tracking-widest text-white/30 uppercase">or</span>
-        <div className="flex-1 h-px bg-white/[0.08]" />
-      </div>
-
-      <form onSubmit={handleMagicLink} className="space-y-4">
-        <div className="space-y-2">
-          <label
-            htmlFor="email"
-            className="text-[11px] font-mono tracking-widest text-white/40 uppercase block"
-          >
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            placeholder="you@example.com"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            autoComplete="email"
-            className="w-full h-12 rounded-xl px-4 text-[15px] text-white/95 placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-150"
-            style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full h-12 rounded-xl text-[14px] font-semibold transition-all duration-150 disabled:opacity-60"
+      {/* Single email input — feeds both magic link (primary action below)
+          and provides context for the Google fallback. Submit fires
+          magic link; Google button is independent. */}
+      <form onSubmit={handleMagicLink} className="space-y-3">
+        <input
+          id="email"
+          type="email"
+          inputMode="email"
+          placeholder="you@example.com"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          autoComplete="email"
+          className="w-full h-12 px-4 transition-all duration-150"
           style={{
-            background: 'oklch(0.96 0.005 80)',
-            color: 'oklch(0.10 0.005 240)',
+            borderRadius: 4,
+            background: 'var(--color-surface)',
+            border: '0.5px solid var(--color-hairline)',
+            color: 'var(--color-paper)',
+            fontSize: 15,
+            letterSpacing: '-0.005em',
+            outline: 'none',
           }}
-        >
-          {loading ? 'Sending…' : 'Send sign-in link'}
-        </button>
+          onFocus={(e) => {
+            e.currentTarget.style.borderColor = 'rgba(244,243,239,0.30)'
+          }}
+          onBlur={(e) => {
+            e.currentTarget.style.borderColor = 'var(--color-hairline)'
+          }}
+        />
+
+        {/* Two paths, side by side at desktop, stacked on mobile.
+            Magic link is the primary action (cream button) since it's
+            the universal path; Google is the convenience for people who
+            have it. */}
+        <div className="flex flex-col gap-2">
+          <button
+            type="submit"
+            disabled={!emailValid || loading}
+            className="w-full h-12 transition-all duration-150 disabled:opacity-50"
+            style={{
+              borderRadius: 4,
+              fontSize: 14,
+              fontWeight: 500,
+              background:
+                'linear-gradient(180deg, var(--color-bone) 0%, oklch(0.92 0.01 80) 100%)',
+              color: 'var(--color-bg)',
+              border: 0,
+              letterSpacing: '-0.005em',
+              cursor: emailValid && !loading ? 'pointer' : 'default',
+            }}
+          >
+            {loading ? 'Sending…' : 'Email me a sign-in link'}
+          </button>
+
+          <button
+            type="button"
+            onClick={handleGoogle}
+            className="w-full h-12 inline-flex items-center justify-center gap-2 transition-all duration-150"
+            style={{
+              borderRadius: 4,
+              fontSize: 14,
+              fontWeight: 500,
+              background: 'var(--color-surface)',
+              border: '0.5px solid var(--color-hairline)',
+              color: 'var(--color-paper)',
+              letterSpacing: '-0.005em',
+              cursor: 'pointer',
+            }}
+          >
+            <GoogleGlyph />
+            Continue with Google
+          </button>
+        </div>
       </form>
 
+      {/* Beta code disclosure — collapsed by default so the primary auth
+          flow is unobstructed. Only relevant for new users with a code. */}
       {!inviteFromUrl && (
-        <div className="pt-2 space-y-2">
-          <label
-            htmlFor="invite-code"
-            className="text-[11px] font-mono tracking-widest text-white/40 uppercase block"
-          >
-            Have a beta code?
-          </label>
-          <input
-            id="invite-code"
-            type="text"
-            placeholder="ABCDEFGHJK"
-            value={code}
-            onChange={e => setCode(e.target.value.toUpperCase().replace(/\s+/g, ''))}
-            autoComplete="off"
-            maxLength={20}
-            className="w-full h-11 rounded-xl px-4 font-mono text-[14px] tracking-[0.18em] text-white/95 placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-150"
-            style={{
-              background: 'rgba(255,255,255,0.025)',
-              border: '1px solid rgba(255,255,255,0.06)',
-            }}
-          />
-          <p className="text-[11px] text-white/30 leading-relaxed">
-            Paste a code before signing in — we&rsquo;ll apply it automatically.
-          </p>
+        <div className="pt-2">
+          {!showCode ? (
+            <button
+              type="button"
+              onClick={() => setShowCode(true)}
+              className="font-mono"
+              style={{
+                background: 'transparent',
+                border: 0,
+                padding: 0,
+                color: 'var(--color-mute)',
+                fontSize: 10,
+                letterSpacing: '0.18em',
+                textTransform: 'uppercase',
+                cursor: 'pointer',
+              }}
+            >
+              Have a beta code?
+            </button>
+          ) : (
+            <div className="space-y-2">
+              <input
+                id="invite-code"
+                type="text"
+                placeholder="ABCDEFGHJK"
+                value={code}
+                onChange={e => setCode(e.target.value.toUpperCase().replace(/\s+/g, ''))}
+                autoComplete="off"
+                maxLength={20}
+                autoFocus
+                className="w-full h-11 px-4 transition-all duration-150"
+                style={{
+                  borderRadius: 4,
+                  background: 'var(--color-surface)',
+                  border: '0.5px solid var(--color-hairline)',
+                  color: 'var(--color-paper)',
+                  fontFamily: 'var(--font-mono), ui-monospace, monospace',
+                  fontSize: 14,
+                  letterSpacing: '0.18em',
+                  outline: 'none',
+                }}
+              />
+              <p
+                style={{
+                  fontSize: 11,
+                  color: 'var(--color-faint)',
+                  lineHeight: 1.5,
+                  letterSpacing: '-0.005em',
+                }}
+              >
+                We&rsquo;ll apply it after sign-in.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
