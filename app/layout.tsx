@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Instrument_Sans, Instrument_Serif, Martian_Mono } from "next/font/google";
+import { Dock } from "@/components/dock";
 import "./globals.css";
 
 /**
@@ -70,6 +71,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         `}
       >
         {children}
+        <Dock />
       </body>
     </html>
   );

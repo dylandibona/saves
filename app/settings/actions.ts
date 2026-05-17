@@ -6,6 +6,16 @@ import { createClient } from '@/lib/supabase/server'
 import { getHouseholdId } from '@/lib/data/household'
 
 /**
+ * Sign the user out and bounce to /login. Used by the new Settings page
+ * row that replaces the old top-nav sign-out chip.
+ */
+export async function signOut() {
+  const supabase = await createClient()
+  await supabase.auth.signOut()
+  redirect('/login')
+}
+
+/**
  * Generate (or regenerate) the user's personal share token.
  * Uses the SECURITY DEFINER SQL function so the user can only ever
  * touch their own row (auth.uid() bound inside the function).

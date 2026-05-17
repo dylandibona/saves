@@ -1,314 +1,307 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useMemo, useRef, useState } from 'react'
+import { motion } from 'framer-motion'
 import { SaveCard } from './save-card'
+import { Wordmark } from '@/components/wordmark'
 import { CATEGORY_LABELS } from '@/lib/utils/time'
 import type { SaveWithRecommenders } from '@/lib/data/saves'
 import type { Database } from '@/lib/types/supabase'
 
 type Cat = Database['public']['Enums']['save_category']
+type Filter = 'all' | Cat
+
 const ALL_CATS = Object.keys(CATEGORY_LABELS) as Cat[]
 
 /**
- * Feed — Library surface.
+ * Library — Stratum v2.
  *
- * The masthead wordmark in BottomNav already carries the brand. So the
- * page hero doesn't need to repeat "Finds." — it just needs to count
- * what's here. The chromatic puncture moves onto the numeral: an
- * oversized Fraunces-italic count in brand green, with "finds." in
- * cream beside it. One charged element, lots of breathing room around
- * it — Hara emptiness, Sagmeister color discipline, no redundant logo.
+ * Header (wordmark + YOUR LIBRARY + count), single-row drag-scroll
+ * category strip with chromatic underlines, and a vertical list of
+ * Stratum cards. No search field, no Near Me — those will return
+ * later via a ⌘K command bar.
+ *
+ * Italic serif is reserved for single-Find moments (Capture +
+ * Detail) — the Library uses Instrument Sans and Martian Mono only.
  */
 
-const EASE = { duration: 0.18, ease: 'easeInOut' } as const
-
-/**
- * Category pill — two physical states.
- *
- * Inactive (raised): surface-2 ground, 7px dot in the category color on
- *                    the left, paper-color label. Reads as a chip sitting
- *                    on the page surface.
- *
- * Active (pressed-in): the pill takes the FULL saturated category color
- *                      as its ground with dark text on top, plus an
- *                      inset shadow so it reads as a saturated chip
- *                      pressed into the surface. The whole page tints
- *                      to match (handled below), so the chip-press
- *                      reads as "the room caught the chip's color."
- */
-function CategoryPill({
-  label,
-  active,
-  cat,
-  onClick,
-}: {
-  label: string
-  active: boolean
-  cat: Cat
-  onClick: () => void
-}) {
-  return (
-    <motion.button
-      onClick={onClick}
-      whileTap={{ scale: 0.96 }}
-      transition={EASE}
-      className="inline-flex items-center gap-1.5 transition-colors duration-200"
-      style={{
-        height: '28px',
-        padding: active ? '0 12px' : '0 12px 0 10px',
-        borderRadius: 'var(--radius-pill)',
-        background: active ? `var(--color-cat-${cat})` : 'var(--color-surface-2)',
-        color: active ? 'var(--color-bg)' : 'var(--color-paper)',
-        fontFamily: 'var(--font-mono-space)',
-        fontSize: '11px',
-        textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        fontWeight: active ? 600 : 500,
-        boxShadow: active
-          ? 'inset 0 2px 4px rgba(0,0,0,0.35), inset 0 -1px 0 oklch(1 0 0 / 0.10)'
-          : 'none',
-      }}
-    >
-      {!active && (
-        <span
-          aria-hidden
-          style={{
-            width: '7px',
-            height: '7px',
-            borderRadius: '999px',
-            background: `var(--color-cat-${cat})`,
-            flexShrink: 0,
-          }}
-        />
-      )}
-      {label}
-    </motion.button>
-  )
-}
+const EASE = [0.2, 0.8, 0.2, 1] as const
 
 export function FeedClient({
   saves,
   initialCategory,
-  initialQuery,
 }: {
   saves: SaveWithRecommenders[]
   initialCategory?: string
-  initialQuery?: string
 }) {
-  const [query, setQuery]   = useState(initialQuery ?? '')
-  const [active, setActive] = useState<Cat | null>((initialCategory as Cat) ?? null)
+  const initial: Filter =
+    initialCategory && (ALL_CATS as string[]).includes(initialCategory)
+      ? (initialCategory as Cat)
+      : 'all'
+  const [active, setActive] = useState<Filter>(initial)
 
+  // Only show category words for categories that actually have saves.
   const availableCats = useMemo(() => {
     const present = new Set(saves.map(s => s.category as Cat))
     return ALL_CATS.filter(c => present.has(c))
   }, [saves])
 
   const filtered = useMemo(() => {
-    let r = saves
-    if (active) r = r.filter(s => s.category === active)
-    if (query.trim()) {
-      const q = query.toLowerCase()
-      r = r.filter(s =>
-        s.title.toLowerCase().includes(q) ||
-        (s.subtitle?.toLowerCase().includes(q) ?? false)
-      )
-    }
-    return r
-  }, [saves, active, query])
+    if (active === 'all') return saves
+    return saves.filter(s => s.category === active)
+  }, [saves, active])
 
-  // Hero shows the filtered count when a category is active — "1 find"
-  // in the Recipe color when Recipe is selected, "9 finds" in the
-  // default forest green otherwise. The numeral cross-fades on change.
   const total = saves.length
-  const count = active ? filtered.length : total
-  const noun = count === 1 ? 'find' : 'finds'
-  const numeralColor = active
-    ? `var(--color-cat-${active})`
-    : 'oklch(0.70 0.16 152)'
+  const filteredCount = filtered.length
+  const activeLabel = active === 'all' ? null : CATEGORY_LABELS[active] ?? active
+  const activeTone =
+    active === 'all' ? 'var(--color-paper)' : `var(--color-cat-${active})`
 
   return (
-    <div className="relative space-y-6">
-      {/* ── Page-wide tint when a category is active ──────────────────
-          The whole viewport takes on a tone of the active category color.
-          Full-bleed flat fill (not a faint top wash) so the page actually
-          feels themed by the active pill — amber when Restaurant is on,
-          terracotta for Recipe, moss for Place. Fixed positioning
-          survives scroll; pointer-events-none keeps it from blocking
-          taps; -z-10 keeps it behind everything. */}
-      <AnimatePresence mode="wait">
-        {active && (
-          <motion.div
-            key={active}
-            aria-hidden
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.5, ease: 'easeOut' }}
-            className="pointer-events-none fixed inset-0 -z-10"
-            style={{
-              background: `color-mix(in oklch, var(--color-cat-${active}) 14%, var(--color-bg))`,
-            }}
-          />
-        )}
-      </AnimatePresence>
+    <div className="relative">
+      {/* ── Header ──────────────────────────────────────────────────── */}
+      <header style={{ padding: '14px 20px 8px' }}>
+        <div className="flex items-center justify-between">
+          <Wordmark size={22} onReset={() => setActive('all')} />
+          {/* Tonight clock-glyph — hidden per Dylan's call. */}
+        </div>
 
-      {/* ── Header: oversized green numeral as the one chromatic moment ── */}
-      <header className="space-y-2">
-        <p
-          className="font-mono uppercase"
-          style={{
-            fontSize: '11px',
-            letterSpacing: '0.18em',
-            color: 'var(--color-mute)',
-          }}
-        >
-          Library
-        </p>
-
-        {total === 0 ? (
-          <h1
+        <div style={{ marginTop: 16 }}>
+          <div
             style={{
-              fontFamily: 'var(--font-serif)',
-              fontStyle: 'italic',
-              fontVariationSettings: "'opsz' 144, 'wght' 500, 'SOFT' 50",
-              fontSize: '40px',
-              letterSpacing: '-0.025em',
-              color: 'var(--color-paper)',
-              lineHeight: 1,
+              fontFamily: 'var(--font-mono), ui-monospace, monospace',
+              fontSize: 9,
+              color: 'var(--color-mute)',
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
             }}
           >
-            No finds<span style={{ fontStyle: 'normal' }}>.</span>
-          </h1>
-        ) : (
-          <h1
-            className="flex items-baseline gap-3"
-            style={{ lineHeight: 1 }}
+            Your&nbsp;Library
+          </div>
+          <div
+            style={{
+              marginTop: 4,
+              fontFamily: 'var(--font-sans), system-ui, sans-serif',
+              fontSize: 24,
+              lineHeight: 1.1,
+              fontWeight: 300,
+              letterSpacing: '-0.02em',
+              textWrap: 'pretty',
+            }}
           >
-            {/* Numeral cross-fades on count OR category change. Color
-                tracks the active category (or the default forest green
-                when nothing is filtered). */}
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span
-                key={`${count}-${active ?? 'all'}`}
-                className="tabular-nums"
-                initial={{ opacity: 0, y: 8, filter: 'blur(4px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, y: -8, filter: 'blur(4px)' }}
-                transition={{ duration: 0.32, ease: 'easeOut' }}
-                style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontStyle: 'italic',
-                  fontVariationSettings: "'opsz' 144, 'wght' 500, 'SOFT' 50",
-                  fontSize: '64px',
-                  letterSpacing: '-0.04em',
-                  color: numeralColor,
-                  display: 'inline-block',
-                }}
-              >
-                {count}
-              </motion.span>
-            </AnimatePresence>
-            <span
-              style={{
-                fontFamily: 'var(--font-serif)',
-                fontStyle: 'italic',
-                fontVariationSettings: "'opsz' 144, 'wght' 400",
-                fontSize: '28px',
-                letterSpacing: '-0.02em',
-                color: 'var(--color-paper)',
-              }}
-            >
-              {noun}<span style={{ fontStyle: 'normal' }}>.</span>
-            </span>
-          </h1>
-        )}
+            {active === 'all' ? (
+              <span style={{ fontWeight: 400 }}>
+                {total} Finds
+                <span style={{ color: 'var(--color-mute)' }}>.</span>
+              </span>
+            ) : (
+              <>
+                <span style={{ color: activeTone, fontWeight: 400 }}>
+                  {filteredCount}
+                </span>{' '}
+                <span style={{ color: 'var(--color-mute)' }}>
+                  {(activeLabel ?? '').toLowerCase()}
+                  {filteredCount === 1 ? '' : 's'}.
+                </span>
+              </>
+            )}
+          </div>
+        </div>
       </header>
 
-      {/* ── Search ────────────────────────────────────────────────────── */}
-      <div className="relative">
-        <span
-          aria-hidden
-          className="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"
-          style={{ color: 'var(--color-mute)' }}
-        >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-            <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="m10.5 10.5 3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </span>
-        <input
-          type="search"
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          placeholder="Search"
-          className="w-full transition-shadow duration-150 outline-none placeholder:lowercase"
-          style={{
-            height: '44px',
-            paddingLeft: '40px',
-            paddingRight: '16px',
-            background: 'var(--color-surface)',
-            color: 'var(--color-paper)',
-            borderRadius: 'var(--radius-md)',
-            fontSize: '14px',
-            fontFamily: 'var(--font-sans)',
-          }}
-          onFocus={e => (e.currentTarget.style.background = 'var(--color-surface-2)')}
-          onBlur={e => (e.currentTarget.style.background = 'var(--color-surface)')}
-        />
-        {query && (
-          <button
-            onClick={() => setQuery('')}
-            aria-label="Clear search"
-            className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors"
-            style={{ color: 'var(--color-mute)' }}
-          >
-            <svg width="11" height="11" viewBox="0 0 12 12" fill="none">
-              <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/>
-            </svg>
-          </button>
-        )}
-      </div>
+      {/* ── Category strip ──────────────────────────────────────────── */}
+      <CategoryRow
+        active={active}
+        setActive={setActive}
+        saves={saves}
+        availableCats={availableCats}
+      />
 
-      {/* ── Category pills ────────────────────────────────────────────── */}
-      {availableCats.length > 0 && (
-        <div className="flex gap-2 flex-wrap">
-          {availableCats.map(cat => (
-            <CategoryPill
-              key={cat}
-              label={CATEGORY_LABELS[cat]}
-              cat={cat}
-              active={active === cat}
-              onClick={() => setActive(prev => (prev === cat ? null : cat))}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* ── Feed ──────────────────────────────────────────────────────── */}
-      {filtered.length === 0 ? (
-        <EmptyState filtered={Boolean(query || active)} />
-      ) : (
-        <motion.div
-          key={String(active)}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="space-y-2"
-        >
-          {filtered.map((save, i) => (
+      {/* ── Card list ───────────────────────────────────────────────── */}
+      <div style={{ padding: '4px 14px 100px' }}>
+        {filtered.length === 0 ? (
+          <EmptyState filtered={active !== 'all'} />
+        ) : (
+          filtered.map((save, i) => (
             <motion.div
               key={save.id}
-              initial={{ opacity: 0, y: 6 }}
+              initial={{ opacity: 0, y: 4 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: Math.min(i * 0.035, 0.28), duration: 0.22, ease: 'easeOut' }}
+              transition={{
+                delay: Math.min(i * 0.035, 0.5),
+                duration: 0.42,
+                ease: EASE,
+              }}
             >
               <SaveCard save={save} />
             </motion.div>
-          ))}
-        </motion.div>
-      )}
+          ))
+        )}
+      </div>
     </div>
+  )
+}
+
+/* ──────────────────────────────────────────────────────────────────────
+   CategoryRow — single-row horizontal scroll, mouse-drag enabled.
+   Plain typeset words with a 1.5px tinted underline on the active item.
+   ────────────────────────────────────────────────────────────────────── */
+
+function CategoryRow({
+  active,
+  setActive,
+  saves,
+  availableCats,
+}: {
+  active: Filter
+  setActive: (f: Filter) => void
+  saves: SaveWithRecommenders[]
+  availableCats: Cat[]
+}) {
+  const ref = useRef<HTMLDivElement | null>(null)
+  const drag = useRef({ down: false, startX: 0, startScroll: 0, moved: false })
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = ref.current
+    if (!el) return
+    drag.current = {
+      down: true,
+      startX: e.clientX,
+      startScroll: el.scrollLeft,
+      moved: false,
+    }
+    try {
+      el.setPointerCapture(e.pointerId)
+    } catch {
+      // some browsers throw if the pointer isn't capturable; ignore.
+    }
+  }
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current
+    if (!d.down || !ref.current) return
+    const dx = e.clientX - d.startX
+    if (Math.abs(dx) > 3) d.moved = true
+    ref.current.scrollLeft = d.startScroll - dx
+  }
+  const onPointerUp = () => {
+    drag.current.down = false
+  }
+
+  const pick = (next: Filter) => (e: React.MouseEvent) => {
+    if (drag.current.moved) {
+      e.preventDefault()
+      return
+    }
+    setActive(next)
+  }
+
+  const counts = useMemo(() => {
+    const by = new Map<string, number>()
+    for (const s of saves) by.set(s.category as string, (by.get(s.category as string) ?? 0) + 1)
+    return by
+  }, [saves])
+
+  return (
+    <div
+      ref={ref}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      className="no-scrollbar"
+      style={{
+        padding: '8px 0 12px',
+        overflowX: 'auto',
+        whiteSpace: 'nowrap',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
+        cursor: 'grab',
+        userSelect: 'none',
+      }}
+    >
+      {/* Hide the scrollbar in WebKit too. Inline so we don't touch globals.css. */}
+      <style>{`.no-scrollbar::-webkit-scrollbar{display:none}`}</style>
+      <div
+        style={{
+          display: 'inline-flex',
+          gap: 16,
+          padding: '0 20px',
+          alignItems: 'baseline',
+        }}
+      >
+        <CategoryWord
+          active={active === 'all'}
+          onClick={pick('all')}
+          tone="var(--color-paper)"
+          label="all"
+          count={saves.length}
+        />
+        {availableCats.map(cat => (
+          <CategoryWord
+            key={cat}
+            active={active === cat}
+            onClick={pick(cat)}
+            tone={`var(--color-cat-${cat})`}
+            label={(CATEGORY_LABELS[cat] ?? cat).toLowerCase()}
+            count={counts.get(cat) ?? 0}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CategoryWord({
+  active,
+  onClick,
+  tone,
+  label,
+  count,
+}: {
+  active: boolean
+  onClick: (e: React.MouseEvent) => void
+  tone: string
+  label: string
+  count: number
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        background: 'transparent',
+        border: 0,
+        padding: '4px 0',
+        margin: 0,
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'baseline',
+        gap: 4,
+        color: active ? 'var(--color-paper)' : 'var(--color-mute)',
+        fontFamily: 'var(--font-sans), system-ui, sans-serif',
+        fontSize: 14,
+        fontWeight: active ? 500 : 400,
+        letterSpacing: '-0.005em',
+        borderBottom: `1.5px solid ${active ? tone : 'transparent'}`,
+        boxShadow: active ? `0 6px 12px -6px ${tone}` : 'none',
+        transition: 'all 0.28s ease',
+      }}
+    >
+      {label}
+      <sup
+        style={{
+          fontFamily: 'var(--font-mono), ui-monospace, monospace',
+          fontSize: 8.5,
+          color: active ? tone : 'rgba(244,243,239,0.4)',
+          letterSpacing: '0.04em',
+          marginLeft: 1,
+          transition: 'color 0.24s',
+        }}
+      >
+        {count}
+      </sup>
+    </button>
   )
 }
 
@@ -317,30 +310,39 @@ function EmptyState({ filtered }: { filtered: boolean }) {
     <div
       className="mx-auto flex flex-col items-center text-center"
       style={{
-        maxWidth: '360px',
+        maxWidth: 360,
         padding: '40px 24px',
       }}
     >
       <span
         aria-hidden
-        style={{ fontSize: '20px', color: 'var(--color-mute)', marginBottom: '14px' }}
+        style={{ fontSize: 20, color: 'var(--color-mute)', marginBottom: 14 }}
       >
         ◎
       </span>
       <h2
-        className="font-serif italic"
         style={{
-          fontSize: '20px',
+          fontFamily: 'var(--font-sans), system-ui, sans-serif',
+          fontSize: 16,
+          fontWeight: 500,
           color: 'var(--color-paper)',
-          marginBottom: '6px',
-          lineHeight: 1.2,
+          marginBottom: 6,
+          lineHeight: 1.25,
+          letterSpacing: '-0.01em',
         }}
       >
-        {filtered ? 'Nothing matches.' : 'Send your first link.'}
+        {filtered ? 'Nothing here yet.' : 'Send your first link.'}
       </h2>
       {!filtered && (
-        <p style={{ fontSize: '13px', color: 'var(--color-mute)', lineHeight: 1.5 }}>
-          Tap the centered + below to begin.
+        <p
+          style={{
+            fontSize: 12.5,
+            color: 'var(--color-mute)',
+            lineHeight: 1.5,
+            fontFamily: 'var(--font-sans), system-ui, sans-serif',
+          }}
+        >
+          Tap the + dock below to keep something.
         </p>
       )}
     </div>
