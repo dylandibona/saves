@@ -197,14 +197,21 @@ export function OptionsPopup({ saveId, saveTitle, canonicalUrl, categoryTone }: 
   }
 
   return (
-    // Persistent action bar at the bottom of the Detail page. The
-    // global Dock is hidden on /saves/[id] so this bar gets the
-    // bottom-floating slot to itself.
+    // Persistent action bar docked to the viewport bottom (NOT to the
+    // page container — must stay visible as the user scrolls the
+    // article body). The global Dock is hidden on /saves/[id] so this
+    // bar gets the bottom-floating slot to itself.
     <div
-      className="absolute left-0 right-0 bottom-0"
+      className="fixed left-0 right-0"
       style={{
-        padding: '24px 14px 16px',
+        bottom: 0,
+        // Honor iPhone home-indicator safe area; keep the gradient flush.
+        paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + 16px)`,
+        paddingLeft: 14,
+        paddingRight: 14,
+        paddingTop: 24,
         background: 'linear-gradient(180deg, transparent 0%, var(--color-bg) 40%)',
+        zIndex: 40,
       }}
     >
       <AnimatePresence>
