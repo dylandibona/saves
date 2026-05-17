@@ -1,4 +1,14 @@
-export type UrlType = 'google_maps' | 'instagram' | 'youtube' | 'generic'
+export type UrlType =
+  | 'google_maps'
+  | 'instagram'
+  | 'youtube'
+  | 'tiktok'
+  | 'spotify'
+  | 'apple_music'
+  | 'apple_podcasts'
+  | 'letterboxd'
+  | 'goodreads'
+  | 'generic'
 
 /**
  * Clean up junk that comes from pasting URLs out of iOS clipboard, share
@@ -53,9 +63,44 @@ export function detectUrlType(url: string): UrlType {
     if (
       hostname === 'youtube.com' ||
       hostname === 'www.youtube.com' ||
+      hostname === 'm.youtube.com' ||
+      hostname === 'music.youtube.com' ||
       hostname === 'youtu.be'
     ) {
       return 'youtube'
+    }
+
+    if (
+      hostname === 'tiktok.com' ||
+      hostname === 'www.tiktok.com' ||
+      hostname === 'vm.tiktok.com' ||
+      hostname === 'vt.tiktok.com' ||
+      hostname === 'm.tiktok.com'
+    ) {
+      return 'tiktok'
+    }
+
+    if (
+      hostname === 'open.spotify.com' ||
+      hostname === 'spotify.link'
+    ) {
+      return 'spotify'
+    }
+
+    if (hostname === 'music.apple.com') {
+      return 'apple_music'
+    }
+
+    if (hostname === 'podcasts.apple.com') {
+      return 'apple_podcasts'
+    }
+
+    if (hostname === 'letterboxd.com' || hostname === 'boxd.it') {
+      return 'letterboxd'
+    }
+
+    if (hostname === 'goodreads.com' || hostname === 'www.goodreads.com') {
+      return 'goodreads'
     }
 
     return 'generic'
@@ -141,6 +186,82 @@ export function extractMapsPlaceName(url: string): string | null {
       }
     }
 
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * YouTube video ID from any URL shape we see in the wild:
+ *   - youtube.com/watch?v=ID
+ *   - youtu.be/ID
+ *   - youtube.com/shorts/ID
+ *   - youtube.com/embed/ID
+ *   - youtube.com/live/ID
+ *   - m.youtube.com / music.youtube.com — same paths
+ *
+ * Returns null for channel URLs, playlists, search, etc. (anything that
+ * isn't a single watchable video).
+ */
+export function extractYouTubeId(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    const host = parsed.hostname.toLowerCase()
+    const path = parsed.pathname
+
+    if (host === 'youtu.be') {
+      const id = path.replace(/^\//, '').split('/')[0]
+      return /^[\w-]{6,}$/.test(id) ? id : null
+    }
+
+    if (host.endsWith('youtube.com')) {
+      // /watch?v=ID
+      const v = parsed.searchParams.get('v')
+      if (v && /^[\w-]{6,}$/.test(v)) return v
+
+      // /shorts/ID, /embed/ID, /live/ID
+      const m = path.match(/^\/(shorts|embed|live|v)\/([\w-]{6,})/)
+      if (m) return m[2]
+    }
+
+    return null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Spotify resource kind from URL path. Spotify URLs are shaped:
+ *   open.spotify.com/{track|album|playlist|artist|episode|show}/{id}
+ *
+ * Returns 'track' | 'album' | 'playlist' | 'artist' | 'episode' | 'show' | null
+ */
+export type SpotifyKind = 'track' | 'album' | 'playlist' | 'artist' | 'episode' | 'show'
+export function extractSpotifyKind(url: string): SpotifyKind | null {
+  try {
+    const parsed = new URL(url)
+    const m = parsed.pathname.match(/^\/(?:intl-[a-z]+\/)?(track|album|playlist|artist|episode|show)\//)
+    return m ? (m[1] as SpotifyKind) : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * TikTok shape detection. TikTok URLs are either:
+ *   - tiktok.com/@username/video/ID  (canonical)
+ *   - vm.tiktok.com/SHORTCODE        (shortened)
+ *   - vt.tiktok.com/SHORTCODE        (shortened, web share)
+ *
+ * Returns the username if we can extract it from the canonical form,
+ * else null. Shortened URLs need a fetch to resolve.
+ */
+export function extractTikTokUsername(url: string): string | null {
+  try {
+    const parsed = new URL(url)
+    const m = parsed.pathname.match(/^\/@([^/]+)\/(?:video|photo)\//)
+    if (m) return decodeURIComponent(m[1])
     return null
   } catch {
     return null

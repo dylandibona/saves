@@ -3,7 +3,12 @@ import { LoginForm } from './login-form'
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; message?: string; next?: string }>
+  searchParams: Promise<{
+    error?: string
+    message?: string
+    next?: string
+    invite?: string
+  }>
 }) {
   return (
     <div

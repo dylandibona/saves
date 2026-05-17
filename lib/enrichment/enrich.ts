@@ -13,7 +13,11 @@ import {
   detectUrlType,
   extractMapsCoords,
   extractMapsPlaceName,
+  extractSpotifyKind,
+  extractTikTokUsername,
+  extractYouTubeId,
   findCoordsInText,
+  type SpotifyKind,
 } from '@/lib/utils/url-detect'
 import { lookupPlace } from '@/lib/enrichment/places'
 
@@ -96,9 +100,6 @@ export type FetchResult = {
   html: string
   og: OgData
 }
-
-const CHROME_UA =
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 // Facebook's preview crawler — Instagram is built to feed it well, and
 // Google Maps shortlinks redirect cleanly under this UA where they'd
@@ -195,6 +196,52 @@ export async function fetchAndParse(url: string): Promise<FetchResult | null> {
   }
 }
 
+// ─── oEmbed (YouTube / TikTok / Spotify) ──────────────────────────────────────
+
+export type OEmbed = {
+  title: string | null
+  authorName: string | null
+  thumbnailUrl: string | null
+  providerName: string | null
+  type: string | null
+}
+
+const OEMBED_ENDPOINTS: Record<string, (url: string) => string> = {
+  youtube: (u) => `https://www.youtube.com/oembed?url=${encodeURIComponent(u)}&format=json`,
+  tiktok:  (u) => `https://www.tiktok.com/oembed?url=${encodeURIComponent(u)}`,
+  spotify: (u) => `https://open.spotify.com/oembed?url=${encodeURIComponent(u)}`,
+}
+
+export async function fetchOEmbed(
+  provider: 'youtube' | 'tiktok' | 'spotify',
+  url: string,
+): Promise<OEmbed | null> {
+  try {
+    const endpoint = OEMBED_ENDPOINTS[provider](url)
+    const res = await fetch(endpoint, {
+      headers: { Accept: 'application/json' },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as {
+      title?: string
+      author_name?: string
+      thumbnail_url?: string
+      provider_name?: string
+      type?: string
+    }
+    return {
+      title: data.title ?? null,
+      authorName: data.author_name ?? null,
+      thumbnailUrl: data.thumbnail_url ?? null,
+      providerName: data.provider_name ?? null,
+      type: data.type ?? null,
+    }
+  } catch {
+    return null
+  }
+}
+
 // ─── Claude classifier ────────────────────────────────────────────────────────
 
 const VALID_CATEGORIES: ReadonlyArray<SaveCategory> = [
@@ -222,11 +269,30 @@ const EMPTY_CLAUDE: ClaudeResult = {
   extracted: {},
 }
 
+export type ClassifyHint =
+  | 'place'
+  | 'video'           // YouTube / TikTok — wide net, includes workout/recipe/music/podcast/article/noted
+  | 'music'           // Spotify track/album/playlist, Apple Music — bias toward music
+  | 'podcast'         // Spotify episode/show, Apple Podcasts — bias toward podcast
+  | 'movie'           // Letterboxd — bias toward movie
+  | 'book'            // Goodreads — bias toward book
+  | null
+  | undefined
+
+const HINT_PROMPTS: Record<Exclude<ClassifyHint, null | undefined>, string> = {
+  place:   'This is a Google Maps URL, so the category is one of: restaurant, hotel, place, event. Pick the most likely one.',
+  video:   'This is a short-form or long-form video share (YouTube or TikTok). Use the title, channel/creator name, and any caption to decide between: workout, recipe, music, podcast, movie, tv, article, product, or noted. Do NOT default to noted unless you genuinely cannot tell.',
+  music:   'This is a music share (Spotify or Apple Music track/album/playlist). The category is "music". Extract artist, album, and song name into the extracted fields.',
+  podcast: 'This is a podcast share (Spotify or Apple Podcasts episode/show). The category is "podcast". Extract showName, episodeNumber, and any guest/host names.',
+  movie:   'This is a Letterboxd film page. The category is "movie" (or "tv" if the title indicates a series). Extract year, director, runtime.',
+  book:    'This is a Goodreads book page. The category is "book". Extract author and a short summary of the premise.',
+}
+
 export async function classifyWithClaude(
   url: string,
   og: OgData,
   htmlExcerpt: string,
-  hint?: 'place' | null,
+  hint?: ClassifyHint,
 ): Promise<ClaudeResult> {
   const apiKey = process.env.ANTHROPIC_API_KEY
   if (!apiKey) return EMPTY_CLAUDE
@@ -235,9 +301,7 @@ export async function classifyWithClaude(
     const Anthropic = (await import('@anthropic-ai/sdk')).default
     const client = new Anthropic({ apiKey })
 
-    const placeHint = hint === 'place'
-      ? '\nThis is a Google Maps URL, so the category is one of: restaurant, hotel, place, event. Pick the most likely one.'
-      : ''
+    const placeHint = hint ? `\n${HINT_PROMPTS[hint]}` : ''
 
     // Pull text content from HTML body — strip tags, normalize whitespace,
     // cap at ~6k chars. This is where recipe ingredients, workout sets,
@@ -566,19 +630,167 @@ export async function enrichUrl(rawUrl: string): Promise<EnrichedUrl> {
   }
 
   // ── YouTube ──────────────────────────────────────────────────────────────
+  // oEmbed (no key) gives us clean title + channel + thumbnail. Claude then
+  // picks the right category from {workout, recipe, music, podcast, movie,
+  // tv, article, product, noted} based on title + channel + description.
   if (urlType === 'youtube') {
-    const fetched = await fetchAndParse(rawUrl)
+    const videoId = extractYouTubeId(rawUrl)
+    const [oembed, fetched] = await Promise.all([
+      fetchOEmbed('youtube', rawUrl),
+      fetchAndParse(rawUrl),
+    ])
     const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
+    // Prefer maxres thumbnail when we have a video ID — oEmbed gives hqdefault.
+    const heroImage =
+      (videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : null) ??
+      oembed?.thumbnailUrl ??
+      og.image
+    // Build composite OG so Claude sees channel as siteName.
+    const composite: OgData = {
+      title: oembed?.title ?? og.title,
+      description: og.description,
+      image: heroImage,
+      siteName: oembed?.authorName ?? og.siteName,
+    }
+    const claude = hasApiKey
+      ? await classifyWithClaude(rawUrl, composite, fetched?.html ?? '', 'video')
+      : EMPTY_CLAUDE
     return {
-      title: og.title,
-      subtitle: og.siteName ?? null,
-      category: 'noted',  // YouTube doesn't cleanly map — let user override
-      imageUrl: og.image,
+      title: claude.title ?? oembed?.title ?? og.title,
+      subtitle: oembed?.authorName ?? claude.subtitle ?? og.description ?? null,
+      category: claude.category ?? 'noted',
+      imageUrl: heroImage,
       canonicalUrl: rawUrl,
       coords: null,
-      note: null,
-      confidence: 'low',
-      source: og.title ? 'og' : 'heuristic',
+      note: claude.note,
+      confidence: claude.category
+        ? claude.confidence
+        : (oembed?.title ? 'medium' : 'low'),
+      source: claude.category ? 'ai' : (oembed?.title ? 'og' : 'heuristic'),
+      alternativeCategories: claude.alternativeCategories,
+      extracted: claude.extracted,
+    }
+  }
+
+  // ── TikTok ───────────────────────────────────────────────────────────────
+  // oEmbed gives us title (which is usually the caption), author_name (the
+  // @handle), and thumbnail. Slackbot fetch supplies OG description as a
+  // backup. Claude classifies into workout/recipe/music/etc.
+  if (urlType === 'tiktok') {
+    const [oembed, fetched] = await Promise.all([
+      fetchOEmbed('tiktok', rawUrl),
+      fetchAndParse(rawUrl),
+    ])
+    const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
+    const resolvedUrl = fetched?.finalUrl ?? rawUrl
+    const handle = extractTikTokUsername(resolvedUrl) ?? oembed?.authorName ?? null
+    const composite: OgData = {
+      title: oembed?.title ?? og.title,
+      description: og.description,
+      image: oembed?.thumbnailUrl ?? og.image,
+      siteName: handle ?? og.siteName,
+    }
+    const claude = hasApiKey
+      ? await classifyWithClaude(resolvedUrl, composite, fetched?.html ?? '', 'video')
+      : EMPTY_CLAUDE
+    const fallbackTitle = oembed?.title ?? og.title ?? (handle ? `@${handle} on TikTok` : 'TikTok')
+    return {
+      title: claude.title ?? fallbackTitle,
+      subtitle: handle ? `@${handle} on TikTok` : (claude.subtitle ?? og.description ?? null),
+      category: claude.category ?? 'noted',
+      imageUrl: oembed?.thumbnailUrl ?? og.image,
+      canonicalUrl: resolvedUrl,
+      coords: null,
+      note: claude.note,
+      confidence: claude.category ? claude.confidence : (oembed?.title ? 'medium' : 'low'),
+      source: claude.category ? 'ai' : (oembed?.title ? 'og' : 'heuristic'),
+      alternativeCategories: claude.alternativeCategories,
+      extracted: claude.extracted,
+    }
+  }
+
+  // ── Spotify (track / album / playlist / episode / show / artist) ─────────
+  // The URL path tells us the kind; we bias Claude toward music vs podcast
+  // accordingly. oEmbed gives thumbnail + title. OG description on Spotify
+  // is rich enough that Claude can pull artist / album / showName cleanly.
+  if (urlType === 'spotify') {
+    const kind: SpotifyKind | null = extractSpotifyKind(rawUrl)
+    const [oembed, fetched] = await Promise.all([
+      fetchOEmbed('spotify', rawUrl),
+      fetchAndParse(rawUrl),
+    ])
+    const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
+    const composite: OgData = {
+      title: oembed?.title ?? og.title,
+      description: og.description,
+      image: oembed?.thumbnailUrl ?? og.image,
+      siteName: og.siteName ?? 'Spotify',
+    }
+    const isPodcast = kind === 'episode' || kind === 'show'
+    const claude = hasApiKey
+      ? await classifyWithClaude(rawUrl, composite, fetched?.html ?? '', isPodcast ? 'podcast' : 'music')
+      : EMPTY_CLAUDE
+    return {
+      title: claude.title ?? oembed?.title ?? og.title,
+      subtitle: claude.subtitle ?? og.description ?? null,
+      category: claude.category ?? (isPodcast ? 'podcast' : 'music'),
+      imageUrl: oembed?.thumbnailUrl ?? og.image,
+      canonicalUrl: fetched?.finalUrl ?? rawUrl,
+      coords: null,
+      note: claude.note,
+      confidence: claude.category ? claude.confidence : 'medium',
+      source: claude.category ? 'ai' : 'og',
+      alternativeCategories: claude.alternativeCategories,
+      extracted: claude.extracted,
+    }
+  }
+
+  // ── Apple Music / Apple Podcasts ─────────────────────────────────────────
+  // Apple's OG markup is decent. No oEmbed. Just hint Claude toward the
+  // right category and let it extract structure from OG.
+  if (urlType === 'apple_music' || urlType === 'apple_podcasts') {
+    const fetched = await fetchAndParse(rawUrl)
+    const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
+    const isPodcast = urlType === 'apple_podcasts'
+    const claude = hasApiKey
+      ? await classifyWithClaude(rawUrl, og, fetched?.html ?? '', isPodcast ? 'podcast' : 'music')
+      : EMPTY_CLAUDE
+    return {
+      title: claude.title ?? og.title,
+      subtitle: claude.subtitle ?? og.description ?? null,
+      category: claude.category ?? (isPodcast ? 'podcast' : 'music'),
+      imageUrl: og.image,
+      canonicalUrl: fetched?.finalUrl ?? rawUrl,
+      coords: null,
+      note: claude.note,
+      confidence: claude.category ? claude.confidence : 'medium',
+      source: claude.category ? 'ai' : 'og',
+      alternativeCategories: claude.alternativeCategories,
+      extracted: claude.extracted,
+    }
+  }
+
+  // ── Letterboxd / Goodreads ───────────────────────────────────────────────
+  // Both have rich OG + JSON-LD. Pass a category hint so Claude commits.
+  if (urlType === 'letterboxd' || urlType === 'goodreads') {
+    const fetched = await fetchAndParse(rawUrl)
+    const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
+    const hint: ClassifyHint = urlType === 'letterboxd' ? 'movie' : 'book'
+    const claude = hasApiKey
+      ? await classifyWithClaude(rawUrl, og, fetched?.html ?? '', hint)
+      : EMPTY_CLAUDE
+    return {
+      title: claude.title ?? og.title,
+      subtitle: claude.subtitle ?? og.description ?? null,
+      category: claude.category ?? (urlType === 'letterboxd' ? 'movie' : 'book'),
+      imageUrl: og.image,
+      canonicalUrl: fetched?.finalUrl ?? rawUrl,
+      coords: null,
+      note: claude.note,
+      confidence: claude.category ? claude.confidence : 'medium',
+      source: claude.category ? 'ai' : 'og',
+      alternativeCategories: claude.alternativeCategories,
+      extracted: claude.extracted,
     }
   }
 

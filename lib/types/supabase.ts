@@ -218,6 +218,66 @@ export type Database = {
           },
         ]
       }
+      invite_codes: {
+        Row: {
+          code: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          household_id: string | null
+          kind: string
+          max_uses: number
+          notes: string | null
+          plan_grant: string | null
+          role: string
+          updated_at: string
+          uses_count: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          created_by: string
+          expires_at?: string | null
+          household_id?: string | null
+          kind: string
+          max_uses?: number
+          notes?: string | null
+          plan_grant?: string | null
+          role?: string
+          updated_at?: string
+          uses_count?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string | null
+          household_id?: string | null
+          kind?: string
+          max_uses?: number
+          notes?: string | null
+          plan_grant?: string | null
+          role?: string
+          updated_at?: string
+          uses_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invite_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invite_codes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       map_syncs: {
         Row: {
           config: Json
@@ -634,6 +694,7 @@ export type Database = {
       }
       users: {
         Row: {
+          acquired_via_code: string | null
           avatar_url: string | null
           capture_color: string | null
           capture_email: string | null
@@ -656,6 +717,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acquired_via_code?: string | null
           avatar_url?: string | null
           capture_color?: string | null
           capture_email?: string | null
@@ -678,6 +740,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acquired_via_code?: string | null
           avatar_url?: string | null
           capture_color?: string | null
           capture_email?: string | null
@@ -922,6 +985,37 @@ export type Database = {
             }
             Returns: string
           }
+      create_invite_code: {
+        Args: {
+          p_expires_at: string
+          p_household_id: string
+          p_kind: string
+          p_max_uses: number
+          p_notes: string
+          p_plan_grant: string
+          p_role: string
+        }
+        Returns: {
+          code: string
+          created_at: string
+          created_by: string
+          expires_at: string | null
+          household_id: string | null
+          kind: string
+          max_uses: number
+          notes: string | null
+          plan_grant: string | null
+          role: string
+          updated_at: string
+          uses_count: number
+        }
+        SetofOptions: {
+          from: "*"
+          to: "invite_codes"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       disablelongtransactions: { Args: never; Returns: string }
       dropgeometrycolumn:
         | {
@@ -956,6 +1050,7 @@ export type Database = {
       enablelongtransactions: { Args: never; Returns: string }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       expire_merge_proposals: { Args: never; Returns: undefined }
+      generate_invite_code: { Args: never; Returns: string }
       generate_share_token: { Args: never; Returns: string }
       geometry: { Args: { "": string }; Returns: unknown }
       geometry_above: {
@@ -1057,6 +1152,19 @@ export type Database = {
       geomfromewkt: { Args: { "": string }; Returns: unknown }
       gettransactionid: { Args: never; Returns: unknown }
       is_household_member: { Args: { hid: string }; Returns: boolean }
+      list_acquired_users: {
+        Args: never
+        Returns: {
+          code: string
+          days_until_expiry: number
+          redeemer_display_name: string
+          redeemer_email: string
+          subscription_current_period_end: string
+          subscription_plan: string
+          subscription_status: string
+          warning_level: string
+        }[]
+      }
       longtransactionsenabled: { Args: never; Returns: boolean }
       populate_geometry_columns:
         | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
@@ -1098,6 +1206,8 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
+      preview_invite_code: { Args: { p_code: string }; Returns: Json }
+      redeem_invite_code: { Args: { p_code: string }; Returns: Json }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       st_3dclosestpoint: {
@@ -1865,4 +1975,3 @@ export const Constants = {
     },
   },
 } as const
-

@@ -1,7 +1,10 @@
+import { headers } from 'next/headers'
 import { Nav } from '@/components/nav'
 import { createClient } from '@/lib/supabase/server'
 import { requireUser } from '@/lib/auth/require-user'
 import { TokenSection } from './token-section'
+import { InvitesSection } from './invites-section'
+import { TestersSection } from './testers-section'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = { title: 'Settings' }
@@ -17,6 +20,26 @@ export default async function SettingsPage() {
     .select('share_token')
     .eq('id', user!.id)
     .single()
+
+  const { data: codes } = await supabase
+    .from('invite_codes')
+    .select('code, kind, uses_count, max_uses, expires_at, notes, created_at')
+    .order('created_at', { ascending: false })
+
+  // Tester accounts you've onboarded (app codes redeemed by someone).
+  // Sorted by closest-to-expiry first. Powers the "Testers" panel where
+  // you organize the conversion moment as paid plans approach.
+  const { data: testers } = await supabase.rpc('list_acquired_users')
+
+  // Resolve absolute origin for share links. Vercel sets x-forwarded-host /
+  // x-forwarded-proto; locally we fall back to NEXT_PUBLIC_SITE_URL or
+  // finds.dylandibona.com to keep links shareable from any environment.
+  const h = await headers()
+  const proto = h.get('x-forwarded-proto') ?? 'https'
+  const host  = h.get('x-forwarded-host') ?? h.get('host')
+  const origin = host
+    ? `${proto}://${host}`
+    : (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://finds.dylandibona.com')
 
   return (
     <>
@@ -50,6 +73,16 @@ export default async function SettingsPage() {
             Your <span className="font-serif italic font-normal">place</span>.
           </h1>
         </header>
+
+        <InvitesSection
+          initialCodes={(codes ?? []).filter(
+            (c): c is typeof c & { kind: 'app' | 'household' } =>
+              c.kind === 'app' || c.kind === 'household'
+          )}
+          origin={origin}
+        />
+
+        <TestersSection rows={testers ?? []} />
 
         <TokenSection initialToken={profile?.share_token ?? null} />
 

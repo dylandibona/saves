@@ -6,19 +6,30 @@ import { createClient } from '@/lib/supabase/client'
 export function LoginForm({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; message?: string; next?: string }>
+  searchParams: Promise<{
+    error?: string
+    message?: string
+    next?: string
+    invite?: string
+  }>
 }) {
   const params = use(searchParams)
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
   const [loading, setLoading] = useState(false)
+  // Code paste field — supports app codes for stranger sign-up. If the URL
+  // already carries an invite (from a household /join/<code> redirect), we
+  // use that and don't show the field.
+  const [code, setCode] = useState('')
+  const inviteFromUrl = params.invite?.trim().toUpperCase() || null
+  const effectiveInvite = inviteFromUrl ?? (code.trim().toUpperCase() || null)
 
-  // Build the auth callback URL with `next` preserved so the user lands
-  // back where they came from (e.g. /share/... or /add?url=...).
+  // Build the auth callback URL with `next` + `invite` preserved.
   const callbackUrl = (() => {
     if (typeof window === 'undefined') return '/auth/callback'
     const u = new URL('/auth/callback', window.location.origin)
     if (params.next) u.searchParams.set('next', params.next)
+    if (effectiveInvite) u.searchParams.set('invite', effectiveInvite)
     return u.toString()
   })()
 
@@ -69,7 +80,28 @@ export function LoginForm({
             border: '1px solid rgba(244,63,94,0.22)',
           }}
         >
-          <p className="text-[13px] text-rose-300/90">Sign-in didn&rsquo;t take. Try again.</p>
+          <p className="text-[13px] text-rose-300/90">
+            {params.error === 'invite_invalid'
+              ? 'That invite is not valid or has been used. Sign in to continue with a fresh code.'
+              : 'Sign-in didn’t take. Try again.'}
+          </p>
+        </div>
+      )}
+
+      {inviteFromUrl && (
+        <div
+          className="rounded-xl px-4 py-3"
+          style={{
+            background: 'rgba(0,229,160,0.06)',
+            border: '1px solid rgba(0,229,160,0.20)',
+          }}
+        >
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#00e5a0] mb-1">
+            Invite ready
+          </p>
+          <p className="text-[13px] text-white/75 leading-relaxed">
+            Sign in and we&rsquo;ll apply your invite.
+          </p>
         </div>
       )}
 
@@ -127,6 +159,34 @@ export function LoginForm({
           {loading ? 'Sending…' : 'Send sign-in link'}
         </button>
       </form>
+
+      {!inviteFromUrl && (
+        <div className="pt-2 space-y-2">
+          <label
+            htmlFor="invite-code"
+            className="text-[11px] font-mono tracking-widest text-white/40 uppercase block"
+          >
+            Have a beta code?
+          </label>
+          <input
+            id="invite-code"
+            type="text"
+            placeholder="ABCDEFGHJK"
+            value={code}
+            onChange={e => setCode(e.target.value.toUpperCase().replace(/\s+/g, ''))}
+            autoComplete="off"
+            maxLength={20}
+            className="w-full h-11 rounded-xl px-4 font-mono text-[14px] tracking-[0.18em] text-white/95 placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-white/20 transition-all duration-150"
+            style={{
+              background: 'rgba(255,255,255,0.025)',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          />
+          <p className="text-[11px] text-white/30 leading-relaxed">
+            Paste a code before signing in — we&rsquo;ll apply it automatically.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,6 +1,23 @@
 import { type NextRequest } from 'next/server'
-import { detectUrlType, extractMapsCoords, extractMapsPlaceName, findCoordsInText, sanitizeUrl } from '@/lib/utils/url-detect'
-import { fetchAndParse, classifyWithClaude, type ExtractedData } from '@/lib/enrichment/enrich'
+import {
+  detectUrlType,
+  extractMapsCoords,
+  extractMapsPlaceName,
+  extractSpotifyKind,
+  extractTikTokUsername,
+  extractYouTubeId,
+  findCoordsInText,
+  sanitizeUrl,
+} from '@/lib/utils/url-detect'
+import {
+  fetchAndParse,
+  fetchOEmbed,
+  classifyWithClaude,
+  type ClassifyHint,
+  type ExtractedData,
+  type OEmbed,
+  type OgData,
+} from '@/lib/enrichment/enrich'
 import { lookupPlace, type PlaceLookupResult } from '@/lib/enrichment/places'
 import type { Database } from '@/lib/types/supabase'
 
@@ -62,16 +79,47 @@ export async function POST(request: NextRequest) {
       try {
         const urlType = detectUrlType(rawUrl)
         const hasApiKey = Boolean(process.env.ANTHROPIC_API_KEY)
+        const oembedProvider: 'youtube' | 'tiktok' | 'spotify' | null =
+          urlType === 'youtube' ? 'youtube'
+          : urlType === 'tiktok' ? 'tiktok'
+          : urlType === 'spotify' ? 'spotify'
+          : null
 
         send('detected', { urlType, rawUrl })
         await sleep(PACE.betweenPhases)
 
-        // ── Phase 2: fetch + parse OG ─────────────────────────────────
+        // ── Phase 2: fetch + parse OG (+ oEmbed in parallel where applicable) ──
         send('fetching', { url: rawUrl })
-        const fetched = await fetchAndParse(rawUrl)
+        const [fetched, oembed]: [Awaited<ReturnType<typeof fetchAndParse>>, OEmbed | null] =
+          await Promise.all([
+            fetchAndParse(rawUrl),
+            oembedProvider ? fetchOEmbed(oembedProvider, rawUrl) : Promise.resolve(null),
+          ])
         const resolvedUrl = fetched?.finalUrl ?? rawUrl
-        const og = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
+        const ogRaw = fetched?.og ?? { title: null, description: null, image: null, siteName: null }
         const html = fetched?.html ?? ''
+
+        // For YouTube, prefer maxres thumbnail derived from video id over
+        // oEmbed's hqdefault. Falls back cleanly if we can't extract an id.
+        const youtubeMaxres =
+          urlType === 'youtube' && extractYouTubeId(resolvedUrl)
+            ? `https://i.ytimg.com/vi/${extractYouTubeId(resolvedUrl)}/maxresdefault.jpg`
+            : null
+        const tikTokHandle =
+          urlType === 'tiktok'
+            ? (extractTikTokUsername(resolvedUrl) ?? oembed?.authorName ?? null)
+            : null
+
+        // Composite OG that incorporates oEmbed signals so Claude sees the
+        // best available title + channel/handle + thumbnail.
+        const og: OgData = oembedProvider
+          ? {
+              title: oembed?.title ?? ogRaw.title,
+              description: ogRaw.description,
+              image: youtubeMaxres ?? oembed?.thumbnailUrl ?? ogRaw.image,
+              siteName: oembed?.authorName ?? tikTokHandle ?? ogRaw.siteName,
+            }
+          : ogRaw
 
         send('og_parsed', {
           resolvedUrl,
@@ -131,13 +179,23 @@ export async function POST(request: NextRequest) {
           send('classifying', null)
         }
 
+        // Map urlType → classifier hint so Claude commits to the right
+        // category lane instead of falling back to 'noted' for YouTube etc.
+        const classifyHint: ClassifyHint =
+          urlType === 'google_maps' ? 'place'
+          : urlType === 'youtube' || urlType === 'tiktok' ? 'video'
+          : urlType === 'spotify' ? (() => {
+              const k = extractSpotifyKind(resolvedUrl)
+              return k === 'episode' || k === 'show' ? 'podcast' : 'music'
+            })()
+          : urlType === 'apple_music' ? 'music'
+          : urlType === 'apple_podcasts' ? 'podcast'
+          : urlType === 'letterboxd' ? 'movie'
+          : urlType === 'goodreads' ? 'book'
+          : null
+
         const claude = !skipClaude && hasApiKey
-          ? await classifyWithClaude(
-              resolvedUrl,
-              og,
-              html,
-              urlType === 'google_maps' ? 'place' : null
-            )
+          ? await classifyWithClaude(resolvedUrl, og, html, classifyHint)
           : {
               category: null as SaveCategory | null,
               alternativeCategories: [] as SaveCategory[],
@@ -152,9 +210,26 @@ export async function POST(request: NextRequest) {
         const coords: { lat: number; lng: number } | null =
           place?.coords ?? urlCoords
 
-        // Final category — Places types > Claude > 'place' fallback for Maps URLs
+        // Final category — Places types > Claude > urlType-aware fallback.
+        // For media URLs we never want to fall through to null/noted just
+        // because Claude wasn't confident; the URL itself tells us the lane.
+        const urlTypeFallback: SaveCategory | null =
+          urlType === 'google_maps' ? 'place'
+          : urlType === 'spotify' ? ((() => {
+              const k = extractSpotifyKind(resolvedUrl)
+              return k === 'episode' || k === 'show' ? 'podcast' : 'music'
+            })())
+          : urlType === 'apple_music' ? 'music'
+          : urlType === 'apple_podcasts' ? 'podcast'
+          : urlType === 'letterboxd' ? 'movie'
+          : urlType === 'goodreads' ? 'book'
+          // YouTube / TikTok: prefer 'noted' only when Claude couldn't tell —
+          // not a hard fallback at the urlType level, so we let claude.category
+          // win when present and only fall back if it's null.
+          : urlType === 'youtube' || urlType === 'tiktok' ? 'noted'
+          : null
         const category: SaveCategory | null =
-          place?.category ?? claude.category ?? (urlType === 'google_maps' ? 'place' : null)
+          place?.category ?? claude.category ?? urlTypeFallback
 
         // Pick final title — Places name wins, then Instagram fallbacks, then Claude/OG
         const finalTitle = place?.name ?? pickFinalTitle({
@@ -178,16 +253,28 @@ export async function POST(request: NextRequest) {
           await sleep(PACE.betweenStructured)
         }
 
-        // Places-derived subtitle (the formatted address) wins; otherwise
-        // fall back to Claude's inferred subtitle, then the OG description.
-        const finalSubtitle = place?.address ?? claude.subtitle ?? og.description ?? null
+        // Subtitle:
+        //   - Places address wins for Maps URLs.
+        //   - YouTube: channel name (already in og.siteName via composite).
+        //   - TikTok: "@handle on TikTok".
+        //   - Otherwise: Claude > OG description.
+        const youtubeChannel = urlType === 'youtube' ? og.siteName : null
+        const tiktokHandleSubtitle =
+          urlType === 'tiktok' && tikTokHandle ? `@${tikTokHandle} on TikTok` : null
+        const finalSubtitle =
+          place?.address
+          ?? youtubeChannel
+          ?? tiktokHandleSubtitle
+          ?? claude.subtitle
+          ?? og.description
+          ?? null
         if (finalSubtitle) {
           send('subtitled', { subtitle: finalSubtitle })
           await sleep(PACE.betweenStructured)
         }
 
-        // Hero image — Places photo wins over OG (which for Maps URLs is
-        // just Google's generic map preview).
+        // Hero image — Places photo wins. og.image is already the
+        // oEmbed-enriched composite for media URLs (maxres YouTube etc).
         const finalImageUrl = place?.photoUrl ?? og.image ?? null
 
         if (claude.note) {
@@ -349,6 +436,12 @@ function pickFinalTitle(args: {
   if (urlType === 'google_maps') {
     const cleanOgTitle = og.title?.replace(/\s*-\s*Google Maps\s*$/i, '').trim() ?? null
     return claude.title ?? mapsPlaceName ?? cleanOgTitle
+  }
+
+  if (urlType === 'youtube' || urlType === 'tiktok' || urlType === 'spotify') {
+    // og.title here is already the oEmbed-enriched composite. Claude's
+    // cleaned-up title wins when present; otherwise use og.title.
+    return claude.title ?? og.title
   }
 
   if (urlType === 'instagram') {
