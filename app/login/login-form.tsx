@@ -174,7 +174,8 @@ export function LoginForm({
             background: 'var(--color-surface)',
             border: '0.5px solid var(--color-hairline)',
             color: 'var(--color-paper)',
-            fontSize: 15,
+            // 16px so iOS Safari doesn't auto-zoom on focus.
+            fontSize: 16,
             letterSpacing: '-0.005em',
             outline: 'none',
           }}
@@ -271,7 +272,8 @@ export function LoginForm({
                   border: '0.5px solid var(--color-hairline)',
                   color: 'var(--color-paper)',
                   fontFamily: 'var(--font-mono), ui-monospace, monospace',
-                  fontSize: 14,
+                  // 16px so iOS Safari doesn't auto-zoom on focus.
+                  fontSize: 16,
                   letterSpacing: '0.18em',
                   outline: 'none',
                 }}

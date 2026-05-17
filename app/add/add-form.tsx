@@ -430,7 +430,11 @@ export function AddForm({ initialUrl = '', memberCount }: Props) {
               outline: 'none',
               color: 'var(--color-paper)',
               fontFamily: 'var(--font-mono), ui-monospace, monospace',
-              fontSize: 11,
+              // iOS Safari auto-zooms on focus when an input's computed
+              // font-size is < 16px. 16px keeps the page context intact
+              // when the user taps in. Slightly bigger than the original
+              // 11px-mono design, but reads better on mobile anyway.
+              fontSize: 16,
               padding: 0,
             }}
             className="placeholder:text-[var(--color-mute)]"

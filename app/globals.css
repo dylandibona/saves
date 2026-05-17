@@ -167,6 +167,20 @@
     font-weight: 400;
     letter-spacing: 0.12em;
   }
+
+  /* iOS Safari auto-zooms on any input whose computed font-size is < 16px,
+     and never zooms back out. On touch devices we floor every text input
+     to 16px so tapping into the URL box / email / beta-code field doesn't
+     ratchet the viewport into a stuck zoom. Desktop spacing is unaffected.
+     The !important is intentional: a lot of our inputs set fontSize via
+     inline style, which would otherwise win over CSS specificity. */
+  @media (pointer: coarse) {
+    input:not([type='checkbox']):not([type='radio']):not([type='hidden']),
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
+  }
 }
 
 /* ────────────────────────────────────────────────────────────────────
