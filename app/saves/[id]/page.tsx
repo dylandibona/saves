@@ -111,6 +111,11 @@ export default async function SaveDetailPage({
     ? formatRelativeTime(save.last_captured_at).replace(/\s+ago$/i, '').toUpperCase()
     : null
 
+  // Prefer persisted Storage image; fall back to original URL until backfill.
+  const heroSrc = save.hero_image_storage_path
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/hero-images/${save.hero_image_storage_path}`
+    : save.hero_image_url
+
   return (
     <main
       className="relative w-full"
@@ -127,8 +132,8 @@ export default async function SaveDetailPage({
           className="relative w-full overflow-hidden"
           style={{
             height: 184,
-            background: save.hero_image_url
-              ? `center / cover no-repeat url("${save.hero_image_url}")`
+            background: heroSrc
+              ? `center / cover no-repeat url("${heroSrc}")`
               : `linear-gradient(135deg, color-mix(in oklab, ${tone} 22%, var(--color-bg)) 0%, var(--color-bg) 70%)`,
             boxShadow: 'inset 0 0 0 0.5px rgba(255,255,255,0.06)',
           }}

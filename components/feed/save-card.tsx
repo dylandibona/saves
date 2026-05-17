@@ -38,7 +38,13 @@ export function SaveCard({ save }: { save: SaveWithRecommenders }) {
   const category = save.category as SaveCategory
   const label = CATEGORY_LABELS[category] ?? category
   const tone = `var(--color-cat-${category})`
-  const hasImage = Boolean(save.hero_image_url)
+  // Prefer our persisted Storage copy; fall back to the original URL while
+  // hero_image_storage_path is still null (backfill not yet run for this save,
+  // or persistence failed).
+  const heroSrc = save.hero_image_storage_path
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/hero-images/${save.hero_image_storage_path}`
+    : save.hero_image_url
+  const hasImage = Boolean(heroSrc)
   const isPrivate = save.visibility === 'private'
   const initials = firstSaverInitials(save.captures)
   const when = save.last_captured_at ? trimAgo(formatRelativeTime(save.last_captured_at)) : ''
@@ -89,7 +95,7 @@ export function SaveCard({ save }: { save: SaveWithRecommenders }) {
         >
           {hasImage ? (
             <Image
-              src={save.hero_image_url!}
+              src={heroSrc!}
               alt=""
               fill
               sizes="52px"

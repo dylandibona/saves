@@ -95,6 +95,55 @@ export type EnrichedUrl = {
   errors?: EnrichmentError[]
 }
 
+// ─── HTML entity decoder ─────────────────────────────────────────────────────
+// Why this exists: OG meta values come in HTML-encoded. Sites use the full
+// set of named entities (`&rsquo;` for curly apostrophes, `&mdash;` for em
+// dashes, `&hellip;` for ellipses, etc.) and numeric entities (`&#8217;`,
+// `&#x2014;`). The previous implementation only handled five and left
+// everything else as literal text, surfacing as artifacts like "you&rsquo;ll"
+// in card titles. This decoder covers the common named set plus all numeric
+// entities (decimal and hex). Used by fetchAndParse below.
+
+const NAMED_ENTITIES: Record<string, string> = {
+  amp:    '&',  lt:     '<',  gt:     '>',  quot:   '"',  apos:   "'",
+  nbsp:   ' ',
+  // Punctuation we actually see in titles in the wild
+  ndash:  '–', mdash: '—',
+  lsquo:  '‘', rsquo: '’', sbquo: '‚',
+  ldquo:  '“', rdquo: '”', bdquo: '„',
+  hellip: '…', laquo: '«', raquo: '»',
+  // Diacritics commonly seen on recipe and travel sites
+  aacute: 'á', eacute: 'é', iacute: 'í', oacute: 'ó', uacute: 'ú',
+  Aacute: 'Á', Eacute: 'É', Iacute: 'Í', Oacute: 'Ó', Uacute: 'Ú',
+  ntilde: 'ñ', Ntilde: 'Ñ',
+  uuml:   'ü', ouml:   'ö', auml:   'ä',
+  Uuml:   'Ü', Ouml:   'Ö', Auml:   'Ä',
+  agrave: 'à', egrave: 'è', igrave: 'ì', ograve: 'ò', ugrave: 'ù',
+  ccedil: 'ç', Ccedil: 'Ç',
+  szlig:  'ß',
+  // Misc
+  copy:   '©', reg: '®', trade: '™',
+  middot: '·', bull: '•',
+  deg:    '°',
+}
+
+export function decodeHtmlEntities(s: string): string {
+  if (!s) return s
+  return s.replace(/&(#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z][a-zA-Z0-9]+);/g, (raw, body: string) => {
+    if (body[0] === '#') {
+      const code = body[1] === 'x' || body[1] === 'X'
+        ? parseInt(body.slice(2), 16)
+        : parseInt(body.slice(1), 10)
+      if (Number.isFinite(code) && code > 0 && code <= 0x10FFFF) {
+        try { return String.fromCodePoint(code) } catch { return raw }
+      }
+      return raw
+    }
+    const named = NAMED_ENTITIES[body]
+    return named ?? raw
+  })
+}
+
 // ─── Fetch + OG parser ────────────────────────────────────────────────────────
 
 export type OgData = {
@@ -172,13 +221,7 @@ export async function fetchAndParse(url: string): Promise<FetchResult | null> {
     const extract = (pattern: RegExp): string | null => {
       const m = html.match(pattern)
       if (!m) return null
-      return m[1]
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .trim() || null
+      return decodeHtmlEntities(m[1]).trim() || null
     }
 
     const og: OgData = {

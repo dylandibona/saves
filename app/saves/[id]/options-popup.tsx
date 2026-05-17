@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { deleteSave } from './actions'
+import { deleteSave, reEnrichSave } from './actions'
 
 type Props = {
   saveId: string
@@ -11,7 +11,7 @@ type Props = {
   categoryTone: string
 }
 
-type IconKey = 'share' | 'list' | 'copy' | 'edit' | 'trash'
+type IconKey = 'share' | 'list' | 'copy' | 'edit' | 'refresh' | 'trash'
 
 function OptionIcon({ kind }: { kind: IconKey }) {
   switch (kind) {
@@ -43,6 +43,18 @@ function OptionIcon({ kind }: { kind: IconKey }) {
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
           <path
             d="M9.5 2.5l2 2-7 7H2.5v-2l7-7zM8 4l2 2"
+            stroke="currentColor"
+            strokeWidth="1.1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      )
+    case 'refresh':
+      return (
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path
+            d="M2 7a5 5 0 019.2-2.7M12 7a5 5 0 01-9.2 2.7M11.5 1.5v3h-3M2.5 12.5v-3h3"
             stroke="currentColor"
             strokeWidth="1.1"
             strokeLinecap="round"
@@ -118,7 +130,10 @@ function OptionRow({
 export function OptionsPopup({ saveId, saveTitle, canonicalUrl, categoryTone }: Props) {
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [confirmingRefresh, setConfirmingRefresh] = useState(false)
+  const [refreshError, setRefreshError] = useState<string | null>(null)
   const [pending, startTransition] = useTransition()
+  const [refreshing, startRefresh] = useTransition()
 
   useEffect(() => {
     if (!copied) return
@@ -127,7 +142,24 @@ export function OptionsPopup({ saveId, saveTitle, canonicalUrl, categoryTone }: 
   }, [copied])
 
   function close() {
-    if (!pending) setOpen(false)
+    if (!pending && !refreshing) {
+      setOpen(false)
+      setConfirmingRefresh(false)
+      setRefreshError(null)
+    }
+  }
+
+  function handleRefresh() {
+    setRefreshError(null)
+    startRefresh(async () => {
+      try {
+        await reEnrichSave(saveId)
+        setConfirmingRefresh(false)
+        setOpen(false)
+      } catch (e) {
+        setRefreshError(e instanceof Error ? e.message : 'Refresh failed')
+      }
+    })
   }
 
   function copyAsText() {
@@ -220,6 +252,15 @@ export function OptionsPopup({ saveId, saveTitle, canonicalUrl, categoryTone }: 
                 status={copied ? 'COPIED' : null}
               />
               <OptionRow icon="edit" label="Edit" disabled />
+              <OptionRow
+                icon="refresh"
+                label={refreshing ? 'Refreshing…' : 'Refresh from source'}
+                onClick={() => {
+                  if (!canonicalUrl) return
+                  setConfirmingRefresh(true)
+                }}
+                disabled={!canonicalUrl || refreshing}
+              />
               <div
                 style={{
                   height: 1,
@@ -235,6 +276,131 @@ export function OptionsPopup({ saveId, saveTitle, canonicalUrl, categoryTone }: 
                 disabled={pending}
               />
             </motion.div>
+
+            {/* Refresh confirmation modal — sits above the popup; tapping
+                outside or Cancel closes it without running enrichment. */}
+            {confirmingRefresh && (
+              <motion.div
+                key="refresh-confirm"
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.97 }}
+                transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+                className="fixed inset-0 z-[60] flex items-center justify-center px-6"
+                style={{ background: 'rgba(8,8,11,0.66)' }}
+                onClick={() => {
+                  if (!refreshing) setConfirmingRefresh(false)
+                }}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: 'rgba(15,15,20,0.96)',
+                    border: '0.5px solid rgba(244,243,239,0.16)',
+                    borderRadius: 4,
+                    padding: 20,
+                    maxWidth: 320,
+                    width: '100%',
+                    boxShadow: '0 24px 48px rgba(0,0,0,0.6)',
+                  }}
+                >
+                  <p
+                    className="font-mono"
+                    style={{
+                      fontSize: 9,
+                      letterSpacing: '0.16em',
+                      textTransform: 'uppercase',
+                      color: 'var(--color-mute)',
+                    }}
+                  >
+                    Refresh from source
+                  </p>
+                  <h3
+                    className="font-display"
+                    style={{
+                      marginTop: 6,
+                      fontSize: 17,
+                      lineHeight: 1.25,
+                      letterSpacing: '-0.01em',
+                      color: 'var(--color-paper)',
+                    }}
+                  >
+                    Replace this find with fresh data?
+                  </h3>
+                  <p
+                    style={{
+                      marginTop: 8,
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      color: 'var(--color-mute)',
+                      letterSpacing: '-0.005em',
+                    }}
+                  >
+                    The title, image, category, and extracted fields will be
+                    re-pulled from the source URL. Any edits you made here will
+                    be overwritten.
+                  </p>
+                  {refreshError && (
+                    <p
+                      className="font-mono"
+                      style={{
+                        marginTop: 10,
+                        fontSize: 11,
+                        color: 'var(--color-danger)',
+                        letterSpacing: '0.04em',
+                      }}
+                    >
+                      {refreshError}
+                    </p>
+                  )}
+                  <div
+                    className="flex gap-2 justify-end"
+                    style={{ marginTop: 18 }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingRefresh(false)}
+                      disabled={refreshing}
+                      className="font-mono"
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        padding: '8px 14px',
+                        borderRadius: 4,
+                        background: 'rgba(244,243,239,0.04)',
+                        border: '0.5px solid rgba(244,243,239,0.12)',
+                        color: 'var(--color-mute)',
+                        cursor: refreshing ? 'default' : 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRefresh}
+                      disabled={refreshing}
+                      className="font-mono"
+                      style={{
+                        fontSize: 10,
+                        letterSpacing: '0.18em',
+                        textTransform: 'uppercase',
+                        padding: '8px 14px',
+                        borderRadius: 4,
+                        background:
+                          'linear-gradient(180deg, var(--color-bone) 0%, oklch(0.92 0.01 80) 100%)',
+                        border: 0,
+                        color: 'var(--color-bg)',
+                        cursor: refreshing ? 'default' : 'pointer',
+                        opacity: refreshing ? 0.7 : 1,
+                      }}
+                    >
+                      {refreshing ? 'Refreshing…' : 'Replace'}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
           </>
         )}
       </AnimatePresence>

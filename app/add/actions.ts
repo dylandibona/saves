@@ -118,6 +118,22 @@ export async function addSave(formData: FormData) {
   if (error || !newSave) throw new Error(error?.message ?? 'Failed to create save')
   const saveId = newSave.id
 
+  // Persist the hero image to Supabase Storage so it survives source-URL
+  // rot (Instagram CDN tokens expire, Maps photo URLs rotate, etc.).
+  // Inline per Dylan's call — adds ~1-3s to the capture but guarantees the
+  // image is ours before the user navigates to the detail page.
+  if (heroImageUrl) {
+    const { persistHeroImage } = await import('@/lib/enrichment/image-persist')
+    const persisted = await persistHeroImage(saveId, heroImageUrl)
+    if (persisted.ok) {
+      await supabase
+        .from('saves')
+        .update({ hero_image_storage_path: persisted.path })
+        .eq('id', saveId)
+    }
+    // On failure: hero_image_url is still set, renderer falls back to it.
+  }
+
   // Create first capture
   await supabase.from('captures').insert({
     save_id: saveId,

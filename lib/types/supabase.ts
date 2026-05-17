@@ -490,6 +490,7 @@ export type Database = {
           description: string | null
           enrichment_errors: Json | null
           external_ids: Json
+          hero_image_storage_path: string | null
           hero_image_url: string | null
           household_id: string
           id: string
@@ -513,6 +514,7 @@ export type Database = {
           description?: string | null
           enrichment_errors?: Json | null
           external_ids?: Json
+          hero_image_storage_path?: string | null
           hero_image_url?: string | null
           household_id: string
           id?: string
@@ -536,6 +538,7 @@ export type Database = {
           description?: string | null
           enrichment_errors?: Json | null
           external_ids?: Json
+          hero_image_storage_path?: string | null
           hero_image_url?: string | null
           household_id?: string
           id?: string

@@ -157,6 +157,18 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ ok: false, error: insertErr?.message ?? 'save failed' }, { status: 500 })
       }
       saveId = newSave.id
+
+      // Persist hero image to Storage so the card survives source rot.
+      if (enriched.imageUrl) {
+        const { persistHeroImage } = await import('@/lib/enrichment/image-persist')
+        const persisted = await persistHeroImage(saveId, enriched.imageUrl)
+        if (persisted.ok) {
+          await supabase
+            .from('saves')
+            .update({ hero_image_storage_path: persisted.path })
+            .eq('id', saveId)
+        }
+      }
     }
 
     // 9. Always create a capture (so the timeline shows when it was shared)

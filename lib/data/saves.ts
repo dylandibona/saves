@@ -8,7 +8,7 @@ export async function getFeedSaves(householdId: string) {
   const { data, error } = await supabase
     .from('saves')
     .select(`
-      id, title, subtitle, description, category, hero_image_url,
+      id, title, subtitle, description, category, hero_image_url, hero_image_storage_path,
       capture_count, last_captured_at, status, visibility, created_by,
       captures(
         user_id,
