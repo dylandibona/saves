@@ -265,8 +265,24 @@ export function AddForm({ initialUrl = '', memberCount }: Props) {
     }
   }
 
+  // Keep is locked out until the SSE stream finishes. Without this gate
+  // the user could fire mid-stream — title arrives at phase 'titled'
+  // but ingredients / hours / extracted facts are still landing, and
+  // the form would save a half-enriched Find. We accept submission on
+  // both `complete` and `error` so a hung remote source doesn't trap
+  // the user; on error they get whatever OG/heuristic we managed.
+  const isBuilding =
+    buildState.status === 'starting' ||
+    buildState.status === 'fetching' ||
+    buildState.status === 'classifying' ||
+    buildState.status === 'building'
+  const canKeep =
+    !isBuilding &&
+    (buildState.status === 'complete' || buildState.status === 'error' || !!submitTitle)
+
   function handleKeep() {
     if (!submitTitle) return
+    if (!canKeep) return
     setKept(true)
     // Submit on the next tick so the visual "Kept ↵" state can paint
     // before navigation. The form action fires the Server Action.
@@ -525,12 +541,17 @@ export function AddForm({ initialUrl = '', memberCount }: Props) {
           </div>
         )}
 
-        {/* Keep button — cream gradient default, category-tinted top edge
-            and halo once classified, fills tone + "Kept ↵" on user tap. */}
+        {/* Keep button — three states:
+              • idle / no-URL  → disabled, "Keep", neutral cream
+              • building       → disabled, "Building…" with animating dots,
+                                 prevents the race where mid-stream taps
+                                 saved half-enriched Finds
+              • complete (or error fallback) → enabled, "Keep"
+              • user tapped    → tone fill + "Kept ↵" */}
         <button
           type="button"
           onClick={handleKeep}
-          disabled={!titleResolved}
+          disabled={!canKeep || kept}
           style={{
             width: '100%',
             padding: '15px 0',
@@ -543,12 +564,12 @@ export function AddForm({ initialUrl = '', memberCount }: Props) {
             borderTop:
               catSet && tone ? `2px solid ${tone}` : '2px solid transparent',
             borderRadius: 4,
-            cursor: titleResolved ? 'pointer' : 'default',
+            cursor: canKeep && !kept ? 'pointer' : 'default',
             fontFamily: 'var(--font-sans), system-ui, sans-serif',
             fontSize: 14,
             fontWeight: 500,
             letterSpacing: '-0.005em',
-            opacity: titleResolved ? 1 : 0.45,
+            opacity: canKeep || kept ? 1 : (isBuilding ? 0.65 : 0.45),
             boxShadow:
               catSet && tone
                 ? `0 -10px 20px -10px ${tone}, 0 0 0 0.5px rgba(255,255,255,0.06) inset`
@@ -556,8 +577,26 @@ export function AddForm({ initialUrl = '', memberCount }: Props) {
             transition: 'all 0.36s var(--ease-strat, ease)',
           }}
         >
-          {kept ? 'Kept ↵' : 'Keep'}
+          {kept ? 'Kept ↵' : isBuilding ? (
+            <span>
+              Building<span aria-hidden style={{ display: 'inline-block', minWidth: '1.2em', textAlign: 'left' }}>
+                <span className="build-ellipsis-1">.</span>
+                <span className="build-ellipsis-2">.</span>
+                <span className="build-ellipsis-3">.</span>
+              </span>
+            </span>
+          ) : 'Keep'}
         </button>
+        <style>{`
+          @keyframes keep-build-dot {
+            0%, 20%   { opacity: 0.25 }
+            50%       { opacity: 1    }
+            100%      { opacity: 0.25 }
+          }
+          .build-ellipsis-1 { animation: keep-build-dot 1.2s ease-in-out infinite; animation-delay: 0s; }
+          .build-ellipsis-2 { animation: keep-build-dot 1.2s ease-in-out infinite; animation-delay: 0.2s; }
+          .build-ellipsis-3 { animation: keep-build-dot 1.2s ease-in-out infinite; animation-delay: 0.4s; }
+        `}</style>
       </div>
     </form>
   )
