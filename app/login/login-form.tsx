@@ -156,10 +156,50 @@ export function LoginForm({
         </div>
       )}
 
-      {/* Single email input — feeds both magic link (primary action below)
-          and provides context for the Google fallback. Submit fires
-          magic link; Google button is independent. */}
-      <form onSubmit={handleMagicLink} className="space-y-3">
+      {/* Google primary — cream button at the top. Industry-standard
+          ordering (Linear, Vercel, Stripe all lead with OAuth); ~80% of
+          users will tap this without thinking. Both methods handle
+          sign-up + sign-in transparently. */}
+      <button
+        type="button"
+        onClick={handleGoogle}
+        className="w-full h-12 inline-flex items-center justify-center gap-2 transition-all duration-150"
+        style={{
+          borderRadius: 4,
+          fontSize: 14,
+          fontWeight: 500,
+          background:
+            'linear-gradient(180deg, var(--color-bone) 0%, oklch(0.92 0.01 80) 100%)',
+          border: 0,
+          color: 'var(--color-bg)',
+          letterSpacing: '-0.005em',
+          cursor: 'pointer',
+        }}
+      >
+        <GoogleGlyph />
+        Continue with Google
+      </button>
+
+      <div className="flex items-center" style={{ gap: 10 }}>
+        <div className="flex-1" style={{ height: 1, background: 'var(--color-hairline)' }} />
+        <span
+          className="font-mono"
+          style={{
+            fontSize: 9,
+            letterSpacing: '0.18em',
+            textTransform: 'uppercase',
+            color: 'var(--color-faint)',
+          }}
+        >
+          or
+        </span>
+        <div className="flex-1" style={{ height: 1, background: 'var(--color-hairline)' }} />
+      </div>
+
+      {/* Email path — outline secondary. Magic-link works for any email
+          (no Google required). Same dual sign-in/sign-up semantics: a
+          new email creates the account on first click. */}
+      <form onSubmit={handleMagicLink} className="space-y-2">
         <input
           id="email"
           type="email"
@@ -187,50 +227,39 @@ export function LoginForm({
           }}
         />
 
-        {/* Two paths, side by side at desktop, stacked on mobile.
-            Magic link is the primary action (cream button) since it's
-            the universal path; Google is the convenience for people who
-            have it. */}
-        <div className="flex flex-col gap-2">
-          <button
-            type="submit"
-            disabled={!emailValid || loading}
-            className="w-full h-12 transition-all duration-150 disabled:opacity-50"
-            style={{
-              borderRadius: 4,
-              fontSize: 14,
-              fontWeight: 500,
-              background:
-                'linear-gradient(180deg, var(--color-bone) 0%, oklch(0.92 0.01 80) 100%)',
-              color: 'var(--color-bg)',
-              border: 0,
-              letterSpacing: '-0.005em',
-              cursor: emailValid && !loading ? 'pointer' : 'default',
-            }}
-          >
-            {loading ? 'Sending…' : 'Email me a sign-in link'}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleGoogle}
-            className="w-full h-12 inline-flex items-center justify-center gap-2 transition-all duration-150"
-            style={{
-              borderRadius: 4,
-              fontSize: 14,
-              fontWeight: 500,
-              background: 'var(--color-surface)',
-              border: '0.5px solid var(--color-hairline)',
-              color: 'var(--color-paper)',
-              letterSpacing: '-0.005em',
-              cursor: 'pointer',
-            }}
-          >
-            <GoogleGlyph />
-            Continue with Google
-          </button>
-        </div>
+        <button
+          type="submit"
+          disabled={!emailValid || loading}
+          className="w-full h-12 transition-all duration-150 disabled:opacity-50"
+          style={{
+            borderRadius: 4,
+            fontSize: 14,
+            fontWeight: 500,
+            background: 'var(--color-surface)',
+            border: '0.5px solid var(--color-hairline)',
+            color: 'var(--color-paper)',
+            letterSpacing: '-0.005em',
+            cursor: emailValid && !loading ? 'pointer' : 'default',
+          }}
+        >
+          {loading ? 'Sending…' : 'Email me a sign-in link'}
+        </button>
       </form>
+
+      {/* Reassures new users that they don't need a separate sign-up
+          path — either button creates the account on first use. */}
+      <p
+        className="text-center"
+        style={{
+          marginTop: 6,
+          fontSize: 12,
+          color: 'var(--color-mute)',
+          lineHeight: 1.5,
+          letterSpacing: '-0.005em',
+        }}
+      >
+        New to Finds? Either path creates your account.
+      </p>
 
       {/* Beta code disclosure — collapsed by default so the primary auth
           flow is unobstructed. Only relevant for new users with a code. */}
